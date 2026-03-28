@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+
+  mysql:
+    image: mysql:8
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sport_shop
+    ports:
+      - "3306:3306"
+
+  backend:
+    build: ./backend   # 👈 QUAN TRỌNG
+    container_name: spring_app
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/sport_shop?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+    depends_on:
+      - mysql
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: npm start
+    ports:
+      - "3000:3000"
