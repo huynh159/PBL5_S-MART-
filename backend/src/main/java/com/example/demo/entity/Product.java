@@ -21,4 +21,20 @@ public class Product {
     private String description;
     
     private Integer stock;
+
+    private String imageUrl;
+
+    private String brand;
+    private Double salePrice;
+    
+    @Column(unique = true)
+    private String sku;
+    
+    private String status; // "ACTIVE" or "HIDDEN"
+    
+    private String variations; // store sizes/colors as comma separated or JSON
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id")
+    private Category category;
 }

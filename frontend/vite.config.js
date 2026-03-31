@@ -11,5 +11,13 @@ export default defineConfig({
   server: {
     port: 3001,
     strictPort: true,
-  }
+  },
+  optimizeDeps: {
+    include: ['sockjs-client', '@stomp/stompjs'],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/sockjs-client/, /node_modules/],
+    },
+  },
 })

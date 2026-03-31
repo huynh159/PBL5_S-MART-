@@ -6,6 +6,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -22,6 +24,7 @@ public class User implements UserDetails {
     private Integer id;
 
     private String email;
+    @JsonIgnore
     private String password;
     private String role;
     
@@ -32,14 +35,17 @@ public class User implements UserDetails {
     private Boolean isVerified;
     
     @Column(name = "otp_code", length = 10)
+    @JsonIgnore
     private String otpCode;
     
     @Column(name = "otp_expiry")
+    @JsonIgnore
     private LocalDateTime otpExpiry;
     
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-    
+
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -53,6 +59,11 @@ public class User implements UserDetails {
     @Override
     public String getUsername() {
         return email;
+    }
+
+    @Override
+    public String getPassword() {
+        return this.password;
     }
 
     @Override

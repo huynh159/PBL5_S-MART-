@@ -13,12 +13,26 @@ otp_expiry TIMESTAMP,
 created_at TIMESTAMP
 );
 
+CREATE TABLE categories (
+id INT AUTO_INCREMENT PRIMARY KEY,
+name VARCHAR(255) NOT NULL UNIQUE,
+description TEXT
+);
+
 CREATE TABLE products (
 id INT AUTO_INCREMENT PRIMARY KEY,
 name VARCHAR(255),
 price DOUBLE,
 description TEXT,
-stock INT
+stock INT,
+image_url VARCHAR(255),
+category_id INT,
+brand VARCHAR(255),
+sale_price DOUBLE,
+sku VARCHAR(255) UNIQUE,
+status VARCHAR(50) DEFAULT 'ACTIVE',
+variations VARCHAR(255),
+FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
 CREATE TABLE coupons (
@@ -58,6 +72,7 @@ id INT AUTO_INCREMENT PRIMARY KEY,
 sender_id INT,
 receiver_id INT,
 content TEXT,
+status VARCHAR(50) DEFAULT 'SENT',
 created_at TIMESTAMP
 );
 

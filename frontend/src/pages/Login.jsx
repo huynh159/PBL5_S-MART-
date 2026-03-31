@@ -4,24 +4,30 @@ import { toast } from 'react-toastify';
 import authService from '../services/auth.service';
 import { KeyRound, Mail } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
+import { useAuth } from '../context/AuthContext';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate(); // Hook chuyển trang (Routing parameter)
+  const { login } = useAuth(); // Dùng hàm login từ Context để cập nhật trạng thái toàn cục
 
   const handleLogin = async (e) => {
-    e.preventDefault(); // Ngăn chặn form tải lại trang (Prevent Default)
+    e.preventDefault();
     setIsLoading(true);
 
     try {
       const response = await authService.login(email, password);
+      login(response.token, response.role); // Lưu token + role vào Context
       toast.success(response.message || "Đăng nhập thành công!");
-      // Chuyển hướng (Redirect) về trang chủ
-      navigate('/');
+      // Phân quyền: Admin → /admin, User → /
+      if (response.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
-      // Xử lý lỗi (Error Handling)
       const errorMsg = error.response?.data?.message || "Lỗi đăng nhập. Vui lòng thử lại!";
       toast.error(errorMsg);
     } finally {
@@ -33,8 +39,13 @@ function Login() {
     setIsLoading(true);
     try {
       const response = await authService.googleLogin(credentialResponse.credential);
+      login(response.token, response.role);
       toast.success(response.message || "Đăng nhập Google thành công!");
-      navigate('/');
+      if (response.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       const errorMsg = error.response?.data?.message || "Lỗi đăng nhập qua Google!";
       toast.error(errorMsg);

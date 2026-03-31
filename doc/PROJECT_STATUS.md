@@ -45,9 +45,11 @@ Toàn bộ luồng xác thực người dùng đã được xây dựng và b�
 - [ ] **Trang Thanh toán (Checkout)**: Form nhận thông tin giao hàng, hiển thị mã VNPay.
 
 ### Hướng 2: Phát triển tiếp Backend (Shop Features & Payment)
-- [ ] **Quản lý Sản phẩm (Product)**: Viết service và controller lấy danh sách sản phẩm `GET /api/products` và `GET /api/products/{id}`. Cần update Database bổ sung Entity liên quan `Product`, `Category`.
-- [ ] **Giỏ hàng (Cart & CartItems)**: Viết API thêm/xóa/sửa sản phẩm trong giỏ hàng (Yêu cầu Authentication JWT Token).
-- [ ] **Thanh toán (Payment)**: Tích hợp VNPay (đã lấy cấu hình sẵn trong `application.properties` nhưng đang bị comment lại) để thanh toán đơn hàng.
+- [x] **Quản lý Sản phẩm (Product)**: Viết service và controller lấy danh sách sản phẩm `GET /api/products` và `GET /api/products/{id}`. Cần update Database bổ sung Entity liên quan `Product`, `Category`.
+- [x] **Giỏ hàng (Cart & CartItems)**: Viết API thêm/xóa/sửa sản phẩm trong giỏ hàng (Yêu cầu Authentication JWT Token).
+- [x] **Thanh toán (Payment)**: Tích hợp VNPay (đã lấy cấu hình sẵn trong `application.properties` nhưng đang bị comment lại) để thanh toán đơn hàng.
+- [x] **Order & Coupon**: Xử lý tạo đơn hàng, áp dụng mã giảm giá và xem lại lịch sử.
+- [x] **Admin & Chat**: API cho Admin xem thống kê, API cho Chat cơ bản.
 
 ---
 
@@ -74,3 +76,5 @@ cd backend
 - `backend/src/main/java/.../controller/AuthController.java`: Controller chứa các API Public.
 - `backend/src/main/java/.../security/`: Logic Filter kiểm tra JWT và cấu hình Spring Security.
 - `doc/`: Thư mục chứa các tài liệu luồng Auth cho thành viên Frontend thao tác.
+
+

@@ -160,6 +160,7 @@ public class AuthServiceImpl implements AuthService {
                 String jwtToken = jwtService.generateToken(user);
                 return AuthResponse.builder()
                         .token(jwtToken)
+                        .role(user.getRole())
                         .message("Google login successful")
                         .build();
             } else {
@@ -189,6 +190,7 @@ public class AuthServiceImpl implements AuthService {
         String jwtToken = jwtService.generateToken(user);
         return AuthResponse.builder()
                 .token(jwtToken)
+                .role(user.getRole())
                 .message("Login successful")
                 .build();
     }
