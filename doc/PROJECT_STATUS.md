@@ -28,6 +28,19 @@ Toàn bộ luồng xác thực người dùng đã được xây dựng và b�
 - [x] Giao diện **Quên mật khẩu** & form **Tạo mật khẩu mới**.
 - [x] **Đăng nhập Google**: Tích hợp `@react-oauth/google`, bọc thẻ cha App bằng `<GoogleOAuthProvider>`, thành công login qua cửa sổ Pop-up và lưu Token cục bộ.
 
+### Backend (Spring Boot) - Phase 2: Shop Features (Cart, Order, VNPay, Chat, Review)
+- [x] **Product Detail Stats**:
+  - Thêm API `GET /api/products/{id}/detail` trả về `ProductDetailResponse` gồm: `price`, `stock`, `status`, `variations`, `totalSold`.
+  - `totalSold` được tính bằng cách duyệt toàn bộ `OrderItem` theo `productId` và cộng dồn `quantity`.
+- [x] **Review & Rating**:
+  - Tạo `Review` entity + `reviews` table trong `database/database.sql`.
+  - Repository: `ReviewRepository` với các hàm `findByProductIdOrderByCreatedAtDesc`, `getAverageRatingByProduct`, `existsByUserIdAndProductId`.
+  - Service: `ReviewService#createReview` chỉ cho phép user đã từng mua sản phẩm (kiểm tra bằng `OrderItemRepository.existsByOrderUserIdAndProductId`) được gửi đánh giá.
+  - API:
+    - `POST /api/reviews` (body: `productId`, `rating`, `comment`) – yêu cầu JWT, chỉ user đã mua mới gửi được.
+    - `GET /api/reviews/product/{productId}` – trả về danh sách review của 1 sản phẩm.
+    - `GET /api/reviews/product/{productId}/stats` – trả về `averageRating` và `totalSold`.
+
 ### Tài liệu (Documentation)
 - [x] **`doc/Frontend_API_Integration_Guide.md`**: Đã cắm mốc luồng hoạt động UI/UX cho Frontend với đầy đủ request/response để thiết kế giao diện cho phần Đăng nhập/Đăng ký.
 

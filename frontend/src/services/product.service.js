@@ -13,6 +13,21 @@ const productService = {
     return response.data;
   },
 
+  getProductDetail: async (id) => {
+    const response = await api.get(`/products/${id}/detail`);
+    return response.data;
+  },
+
+  getProductReviews: async (productId) => {
+    const response = await api.get(`/reviews/product/${productId}`);
+    return response.data;
+  },
+
+  getProductReviewStats: async (productId) => {
+    const response = await api.get(`/reviews/product/${productId}/stats`);
+    return response.data;
+  },
+
   getProductsByCategory: async (categoryId) => {
     const response = await api.get(`/products/category/${categoryId}`);
     return response.data;

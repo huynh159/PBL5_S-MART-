@@ -37,6 +37,7 @@
 * Chat Service
 * Notification Service
 * Admin Service
+* Review Service (Product Rating)
 
 ---
 

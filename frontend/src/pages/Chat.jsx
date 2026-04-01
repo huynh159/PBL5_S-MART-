@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { MessageCircle, Send, RefreshCw, Check, CheckCheck } from 'lucide-react';
 import chatService from '../services/chat.service';
@@ -9,6 +9,7 @@ import { jwtDecode } from 'jwt-decode';
 const Chat = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState([]);
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
@@ -16,6 +17,15 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const stompClientRef = useRef(null);
   const [adminId, setAdminId] = useState(null);
+
+  // Initialize content from product context
+  useEffect(() => {
+    if (location.state?.productId && location.state?.productName) {
+      setTimeout(() => {
+        setContent(`Xin chào Shop, tôi muốn hỏi về sản phẩm: [${location.state.productName}](${location.state.productLink})`);
+      }, 500); // small delay to wait for state
+    }
+  }, [location.state]);
 
   // Fetch Admin ID
   useEffect(() => {

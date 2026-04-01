@@ -29,7 +29,16 @@ public class Order {
     
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
-    
+
+    @Column(length = 255)
+    private String address;
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(length = 255)
+    private String note;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coupon_id")
     private Coupon coupon;

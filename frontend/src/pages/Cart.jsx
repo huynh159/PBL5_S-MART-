@@ -10,6 +10,7 @@ const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
   const navigate = useNavigate();
 
   const { token } = useAuth();
@@ -56,6 +57,7 @@ const Cart = () => {
     try {
       await cartService.removeCartItem(cartItemId);
       setCartItems((prevItems) => prevItems.filter(item => item.id !== cartItemId));
+      setSelectedItemIds((prev) => prev.filter(id => id !== cartItemId));
       fetchCartCount(); // Đồng bộ lại số lượng Header
       toast.success('Đã xóa sản phẩm khỏi giỏ hàng');
     } catch (err) {
@@ -65,7 +67,31 @@ const Cart = () => {
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.product?.price || 0) * item.quantity, 0);
+    return cartItems
+      .filter(item => selectedItemIds.includes(item.id))
+      .reduce((total, item) => total + (item.product?.price || 0) * item.quantity, 0);
+  };
+
+  const handleSelectItem = (id) => {
+    setSelectedItemIds(prev =>
+      prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const handeSelectAll = () => {
+    if (selectedItemIds.length === cartItems.length) {
+      setSelectedItemIds([]);
+    } else {
+      setSelectedItemIds(cartItems.map(item => item.id));
+    }
+  };
+
+  const handleCheckout = () => {
+    if (selectedItemIds.length === 0) {
+      toast.warning('Vui lòng chọn ít nhất 1 sản phẩm để thanh toán!');
+      return;
+    }
+    navigate('/checkout', { state: { selectedItems: selectedItemIds } });
   };
 
   if (loading) return <div className="text-center py-20 text-gray-500">Đang tải giỏ hàng...</div>;
@@ -87,8 +113,23 @@ const Cart = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cột Trái: Danh sách sản phẩm */}
           <div className="lg:col-span-2 space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="checkbox"
+                checked={selectedItemIds.length === cartItems.length && cartItems.length > 0}
+                onChange={handeSelectAll}
+                className="w-5 h-5 cursor-pointer"
+              />
+              <span className="font-semibold text-gray-700">Chọn tất cả ({cartItems.length} sản phẩm)</span>
+            </div>
             {cartItems.map((item) => (
               <div key={item.id} className="flex items-center gap-6 bg-gray-50 rounded-xl p-4 border border-gray-100 relative">
+                <input
+                  type="checkbox"
+                  checked={selectedItemIds.includes(item.id)}
+                  onChange={() => handleSelectItem(item.id)}
+                  className="w-5 h-5 cursor-pointer flex-shrink-0"
+                />
                 <button
                   onClick={() => handleRemoveItem(item.id)}
                   className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition"
@@ -134,10 +175,13 @@ const Cart = () => {
               <span className="text-blue-600">{calculateTotal().toLocaleString('vi-VN')} ₫</span>
             </div>
 
-            <Link to="/checkout" className="mt-8 flex items-center justify-center w-full py-4 bg-yellow-400 text-slate-800 font-bold rounded-xl hover:bg-yellow-500 shadow-md transition text-lg">
+            <button
+              onClick={handleCheckout}
+              className="mt-8 flex items-center justify-center w-full py-4 bg-yellow-400 text-slate-800 font-bold rounded-xl hover:bg-yellow-500 shadow-md transition text-lg"
+            >
               <CreditCard className="w-5 h-5 mr-2" />
-              Thanh Toán Ngay
-            </Link>
+              Thanh Toán Ngay ({selectedItemIds.length})
+            </button>
           </div>
         </div>
       )}

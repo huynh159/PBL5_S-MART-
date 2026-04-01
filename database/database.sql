@@ -83,3 +83,27 @@ content TEXT,
 is_read BOOLEAN,
 created_at TIMESTAMP
 );
+
+-- Product reviews
+CREATE TABLE reviews (
+id INT AUTO_INCREMENT PRIMARY KEY,
+user_id INT,
+product_id INT,
+rating INT,
+comment TEXT,
+created_at TIMESTAMP
+);
+
+-- Foreign keys (defined last to avoid dependency issues on initial import)
+ALTER TABLE orders ADD CONSTRAINT fk_orders_users FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE orders ADD CONSTRAINT fk_orders_coupons FOREIGN KEY (coupon_id) REFERENCES coupons(id);
+ALTER TABLE order_items ADD CONSTRAINT fk_order_items_orders FOREIGN KEY (order_id) REFERENCES orders(id);
+ALTER TABLE order_items ADD CONSTRAINT fk_order_items_products FOREIGN KEY (product_id) REFERENCES products(id);
+ALTER TABLE cart_items ADD CONSTRAINT fk_cart_items_users FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE cart_items ADD CONSTRAINT fk_cart_items_products FOREIGN KEY (product_id) REFERENCES products(id);
+ALTER TABLE messages ADD CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id);
+ALTER TABLE messages ADD CONSTRAINT fk_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users(id);
+ALTER TABLE notifications ADD CONSTRAINT fk_notifications_users FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE reviews ADD CONSTRAINT fk_reviews_users FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE reviews ADD CONSTRAINT fk_reviews_products FOREIGN KEY (product_id) REFERENCES products(id);
+

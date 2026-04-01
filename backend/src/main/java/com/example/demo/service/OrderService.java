@@ -27,14 +27,19 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         List<CartItem> cartItems = cartItemRepository.findByUserId(user.getId());
+        if (request.getCartItemIds() != null && !request.getCartItemIds().isEmpty()) {
+            cartItems = cartItems.stream()
+                .filter(item -> request.getCartItemIds().contains(item.getId()))
+                .collect(java.util.stream.Collectors.toList());
+        }
         if (cartItems.isEmpty()) {
-            throw new RuntimeException("Cart is empty");
+            throw new RuntimeException("Cart is empty or no valid items selected");
         }
 
         double total = 0;
         for (CartItem item : cartItems) {
             total += item.getProduct().getPrice() * item.getQuantity();
-            
+
             // Deduct stock
             Product product = item.getProduct();
             if (product.getStock() < item.getQuantity()) {
@@ -55,9 +60,12 @@ public class OrderService {
                 .total(total)
                 .status("PENDING")
                 .paymentMethod(request.getPaymentMethod())
+                .address(request.getAddress())
+                .phone(request.getPhone())
+                .note(request.getNote())
                 .coupon(coupon)
                 .build();
-        
+
         Order savedOrder = orderRepository.save(order);
 
         for (CartItem item : cartItems) {
@@ -69,7 +77,7 @@ public class OrderService {
             orderItemRepository.save(orderItem);
         }
 
-        cartItemRepository.deleteByUserId(user.getId());
+        cartItemRepository.deleteAll(cartItems);
 
         // Gửi thông báo đến Admin
         notificationService.notifyAdmins("Có đơn hàng mới #" + savedOrder.getId() + " vừa được tạo bởi " + user.getEmail() + " với tổng tiền: " + total + " VND.");

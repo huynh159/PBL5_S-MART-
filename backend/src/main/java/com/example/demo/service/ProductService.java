@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.ProductDetailResponse;
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.entity.Category;
 import com.example.demo.entity.Product;
@@ -32,6 +33,20 @@ public class ProductService {
     public Product getProductById(Integer id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
+    }
+
+    public ProductDetailResponse getProductDetail(Integer id) {
+        Product product = getProductById(id);
+
+        // Tính tổng sold dựa vào OrderItem
+        long totalSold = orderItemRepository.findByProductId(id)
+                .stream()
+                .mapToLong(oi -> oi.getQuantity())
+                .sum();
+
+        // Average rating sẽ được tính ở ReviewService + endpoint stats, ở đây có thể để 0 và frontend gọi riêng,
+        // hoặc inject ReviewRepository/ReviewService. Để tránh vòng phụ thuộc, giữ 0 và để API stats phụ trách.
+        return ProductDetailResponse.from(product, 0.0, totalSold);
     }
 
     public List<Product> getProductsByCategory(Integer categoryId) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Tag, CreditCard, Truck, CheckCircle } from 'lucide-react';
 import orderService from '../services/order.service';
@@ -21,13 +21,22 @@ const Checkout = () => {
   const { fetchCartCount } = useCart();
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const selectedItemIds = location.state?.selectedItems || [];
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
+    if (selectedItemIds.length === 0) {
+      toast.warning('Không có sản phẩm để thanh toán!');
+      navigate('/cart');
+      return;
+    }
     const loadCart = async () => {
       try {
         const data = await cartService.getCart();
-        setCartItems(data || []);
+        const selected = data.filter(item => selectedItemIds.includes(item.id));
+        setCartItems(selected || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -35,7 +44,7 @@ const Checkout = () => {
       }
     };
     loadCart();
-  }, [token, navigate]);
+  }, [token, navigate, location.state]);
 
   const subtotal = cartItems.reduce((s, item) => s + (item.product?.price || 0) * item.quantity, 0);
   const discount = couponDiscount ? Math.round(subtotal * couponDiscount / 100) : 0;
@@ -76,6 +85,7 @@ const Checkout = () => {
         address,
         phone,
         note,
+        cartItemIds: selectedItemIds
       });
 
       await fetchCartCount();

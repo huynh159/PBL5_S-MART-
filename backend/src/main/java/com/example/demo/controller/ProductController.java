@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.ProductDetailResponse;
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.entity.Product;
 import com.example.demo.service.ProductService;
@@ -26,9 +27,16 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAllProducts(page, size, search));
     }
 
+    // Legacy detail used by some parts of frontend
     @GetMapping("/{id}")
     public ResponseEntity<Product> getProductById(@PathVariable Integer id) {
         return ResponseEntity.ok(productService.getProductById(id));
+    }
+
+    // New detail endpoint with rating & sold info for Product Detail page
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<ProductDetailResponse> getProductDetail(@PathVariable Integer id) {
+        return ResponseEntity.ok(productService.getProductDetail(id));
     }
 
     @GetMapping("/category/{categoryId}")
