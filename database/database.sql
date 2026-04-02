@@ -49,6 +49,9 @@ user_id INT,
 total DOUBLE,
 status VARCHAR(50),
 payment_method VARCHAR(50),
+address VARCHAR(255),
+phone VARCHAR(20),
+note VARCHAR(255),
 coupon_id INT,
 created_at TIMESTAMP
 );
@@ -57,7 +60,8 @@ CREATE TABLE order_items (
 id INT AUTO_INCREMENT PRIMARY KEY,
 order_id INT,
 product_id INT,
-quantity INT
+quantity INT,
+price DOUBLE
 );
 
 CREATE TABLE cart_items (
@@ -80,6 +84,7 @@ CREATE TABLE notifications (
 id INT AUTO_INCREMENT PRIMARY KEY,
 user_id INT,
 content TEXT,
+link VARCHAR(255),
 is_read BOOLEAN,
 created_at TIMESTAMP
 );
@@ -106,4 +111,3 @@ ALTER TABLE messages ADD CONSTRAINT fk_messages_receiver FOREIGN KEY (receiver_i
 ALTER TABLE notifications ADD CONSTRAINT fk_notifications_users FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_users FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_products FOREIGN KEY (product_id) REFERENCES products(id);
-

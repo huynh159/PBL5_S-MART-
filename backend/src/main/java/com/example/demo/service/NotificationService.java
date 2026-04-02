@@ -18,7 +18,20 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void notifyAdmins(String content) {
+    public void notifyUser(User user, String content, String link) {
+        Notification notification = Notification.builder()
+                .user(user)
+                .content(content)
+                .link(link)
+                .isRead(false)
+                .build();
+        notificationRepository.save(notification);
+
+        // Chuyển toàn bộ notification thay vì chỉ string
+        messagingTemplate.convertAndSend("/topic/user-" + user.getId(), notification);
+    }
+
+    public void notifyAdmins(String content, String link) {
         // Lấy tất cả user có Role là ADMIN
         List<User> admins = userRepository.findAll().stream()
                 .filter(u -> "ADMIN".equals(u.getRole()))
@@ -29,14 +42,19 @@ public class NotificationService {
             Notification notification = Notification.builder()
                     .user(admin)
                     .content(content)
+                    .link(link)
                     .isRead(false)
                     .build();
             notificationRepository.save(notification);
         }
 
-        // Bắn sự kiện realtime tới kênh /topic/admin-notifications
-        // Dữ liệu truyền đi là nội dung string hoặc JSON object tùy bạn, ở đây gửi thẳng string cho đơn giản
-        messagingTemplate.convertAndSend("/topic/admin-notifications", content);
+        Notification wsNotification = Notification.builder()
+                .content(content)
+                .link(link)
+                .isRead(false)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+        messagingTemplate.convertAndSend("/topic/admin-notifications", wsNotification);
     }
 
     public List<Notification> getNotificationsForUser(String email) {
@@ -52,4 +70,3 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 }
-

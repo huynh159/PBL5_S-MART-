@@ -46,11 +46,11 @@ public class PaymentController {
 
         if (paymentStatus == 1) {
             orderService.updateOrderStatus(orderId, "PAID");
-            notificationService.notifyAdmins("Thanh toán thành công qua VNPay cho đơn hàng #" + orderId + "!");
+            notificationService.notifyAdmins("Thanh toán thành công qua VNPay cho đơn hàng #" + orderId + "!", "/admin/orders");
             return new RedirectView("http://localhost:3001/payment-status?vnp_ResponseCode=00");
         } else {
             orderService.updateOrderStatus(orderId, "FAILED");
-            notificationService.notifyAdmins("Thanh toán thất bại qua VNPay cho đơn hàng #" + orderId + ".");
+            notificationService.notifyAdmins("Thanh toán thất bại qua VNPay cho đơn hàng #" + orderId + ".", "/admin/orders");
             return new RedirectView("http://localhost:3001/payment-status?vnp_ResponseCode=99");
         }
     }

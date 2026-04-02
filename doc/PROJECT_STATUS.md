@@ -4,90 +4,76 @@ Tài liệu này dùng để bàn giao và theo dõi tiến độ công việc g
 
 ---
 
-## 🟢 1. Những phần ĐÃ HOÀN THÀNH (Completed)
+## ✅ 1. Những phần ĐÃ HOÀN THÀNH (Completed)
 
-### Backend (Spring Boot) - Phase 1: Authentication & Security
-Toàn bộ luồng xác thực người dùng đã được xây dựng và b��o mật hoàn chỉnh:
-- [x] **Cơ sở dữ liệu (MySQL)**: Đã cấu hình `application.properties` và Entity `User`.
-- [x] **Gửi Email (Email Service)**: Đã tích hợp `spring-boot-starter-mail` để gửi OTP qua tài khoản Gmail.
-- [x] **Spring Security & JWT**:
-  - Đã cấu hình `SecurityConfig`, mã hóa mật khẩu bằng `BCryptPasswordEncoder`.
-  - Phân quyền endpoint: Các API `/api/auth/**` được public, các API khác yêu cầu chuỗi JWT Bearer Token.
-- [x] **Các API Xác thực (AuthController)**:
-  - `POST /api/auth/register`: Đăng ký tài khoản (Lưu db mật khẩu mã hóa BCrypt, trạng thái `isVerified = false`, gửi OTP 6 số qua email).
-  - `POST /api/auth/verify-otp`: Nhập mã OTP từ email để kích hoạt tài khoản (`isVerified = true`).
-  - `POST /api/auth/login`: Xác thực Email/Password, trả về chuỗi **JWT Token**.
-  - `POST /api/auth/forgot-password`: Quên mật khẩu, gửi OTP khôi phục qua email.
-  - `POST /api/auth/reset-password`: Đổi mật khẩu mới kèm mã OTP khôi phục hợp lệ.
-  - `POST /api/auth/google-login`: Tự động nhận `idToken` của Google, giải mã qua `google-api-client`, tạo User và trả về JWT Bearer Token nội bộ.
+### 🛡️ Authentication & Security (Đã Xong)
+- [x] Quản lý User, roles (ADMIN/USER), JWT Authentication, Bcrypt.
+- [x] Gửi OTP qua email (Đăng ký, Quên mật khẩu).
+- [x] Đăng nhập Google (Google OAuth2).
 
-### Frontend (React JS) - Phase 1: Authentication UI
-- [x] **Setup dự án**: Cấu trúc Vite, cài đặt Tailwind CSS, Axios, React Router, React Toastify.
-- [x] Giao diện **Đăng ký** & Màn chờ **Nhập OTP** (đếm ngược 5 phút).
-- [x] Giao diện **Đăng nhập**, xử lý lưu JWT Token vào `localStorage`.
-- [x] Giao diện **Quên mật khẩu** & form **Tạo mật khẩu mới**.
-- [x] **Đăng nhập Google**: Tích hợp `@react-oauth/google`, bọc thẻ cha App bằng `<GoogleOAuthProvider>`, thành công login qua cửa sổ Pop-up và lưu Token cục bộ.
+### 🛍️ Các chức năng Cửa hàng - E-commerce (Đã Xong)
+- [x] **Quản lý Sản phẩm & Danh mục**: Xem chi tiết sản phẩm, số lượng tồn kho (stock), đã bán (totalSold), lọc tìm kiếm.
+- [x] **Đánh giá & Bình luận (Review)**: User đã mua (COMPLETED/DELIVERED) mới được đánh giá. Hiển thị số sao trung bình.
+- [x] **Giỏ hàng (Cart)**: Thêm, sửa, xóa sản phẩm khỏi giỏ hàng.
+- [x] **Mã giảm giá (Coupon)**: Áp dụng mã giảm giá khi thanh toán.
+- [x] **Thanh toán (Checkout) & VNPay**: Hỗ trợ đặt hàng COD và thanh toán trực tuyến qua cổng VNPay (Sandbox). Xử lý Callback từ VNPay để cập nhật trạng thái đơn (PAID/FAILED).
 
-### Backend (Spring Boot) - Phase 2: Shop Features (Cart, Order, VNPay, Chat, Review)
-- [x] **Product Detail Stats**:
-  - Thêm API `GET /api/products/{id}/detail` trả về `ProductDetailResponse` gồm: `price`, `stock`, `status`, `variations`, `totalSold`.
-  - `totalSold` được tính bằng cách duyệt toàn bộ `OrderItem` theo `productId` và cộng dồn `quantity`.
-- [x] **Review & Rating**:
-  - Tạo `Review` entity + `reviews` table trong `database/database.sql`.
-  - Repository: `ReviewRepository` với các hàm `findByProductIdOrderByCreatedAtDesc`, `getAverageRatingByProduct`, `existsByUserIdAndProductId`.
-  - Service: `ReviewService#createReview` chỉ cho phép user đã từng mua sản phẩm (kiểm tra bằng `OrderItemRepository.existsByOrderUserIdAndProductId`) được gửi đánh giá.
-  - API:
-    - `POST /api/reviews` (body: `productId`, `rating`, `comment`) – yêu cầu JWT, chỉ user đã mua mới gửi được.
-    - `GET /api/reviews/product/{productId}` – trả về danh sách review của 1 sản phẩm.
-    - `GET /api/reviews/product/{productId}/stats` – trả về `averageRating` và `totalSold`.
+### 📦 Quản lý Đơn hàng & Real-time (Mới Hoàn Thành)
+- [x] **Workflow Đơn Hàng**: Luồng trạng thái chuẩn Shopee: `PENDING` -> `PROCESSING` -> `SHIPPED` -> `DELIVERED` | `CANCELLED`.
+- [x] **Hủy đơn (Cancel Order)**: Cho phép Customer hủy đơn khi đang ở trạng thái chờ/đang chuẩn bị.
+- [x] **Lịch sử & Chi tiết đơn hàng**: Giao diện người dùng xem lịch sử và chi tiết một đơn (`/orders/:id`).
+- [x] **WebSockets Real-time Notifications**: 
+  - Khi Admin đổi trạng thái đơn, màn hình User hiện Toast và cập nhật trạng thái ngay lập tức (không cần F5).
+  - Có Chuông thông báo (Notification Dropdown) lưu trữ thông báo lịch sử, click vào link để chuyển đến trang đơn hàng.
+  - Khi User hủy đơn hoặc đặt đơn mới, hệ thống bắn STOMP Message thông báo tới thiết bị của Admin.
 
-### Tài liệu (Documentation)
-- [x] **`doc/Frontend_API_Integration_Guide.md`**: Đã cắm mốc luồng hoạt động UI/UX cho Frontend với đầy đủ request/response để thiết kế giao diện cho phần Đăng nhập/Đăng ký.
+### 💬 Chat Real-time Admin - User (Đã Xong)
+- [x] Tích hợp STOMP/SockJS cho chức năng Chat trực tiếp giữa User và Admin.
+- [x] Lưu lịch sử tin nhắn vào database.
+
+### 🛠️ Admin Dashboard (Đã Xong)
+- [x] Quản lý Đơn hàng, Quản lý Sản phẩm, Quản lý Danh mục, Quản lý User.
+- [x] Quản lý Chat Box với khách hàng.
 
 ---
 
-## 🟡 2. Những phần CẦN LÀM TIẾP CHUẨN BỊ (To-Do & Next Steps)
+## 🚀 2. Những phần CẦN LÀM TIẾP THEO (To-Do & Next Steps)
 
-Đồng nghiệp nhận bàn giao có thể chọn 1 trong 2 hướng để làm tiếp:
+Đồng nghiệp nhận bàn giao có thể tiếp tục phát triển các tính năng nâng cao sau:
 
-### Hướng 1: Xây dựng giao diện Frontend (Shop UI)
-*Cần bắt đầu thiết kế các Layout và Page dành cho ứng dụng E-commerce.*
-- [ ] **Trang Chủ (Home)**: Tích hợp Header, Footer, Hero Banner. Kêu gọi dữ liệu hiển thị (Danh sách sản phẩm nổi bật).
-- [ ] **Trang Chi Tiết Sản Phẩm**: Kêu gọi API `GET /api/products/{id}` để hiện mô tả và kho ảnh.
-- [ ] **Trang Giỏ Hàng (Cart)**: Quản lý State giỏ hàng (Redux/Context API), cho phép thay đổi số lượng.
-- [ ] **Trang Thanh toán (Checkout)**: Form nhận thông tin giao hàng, hiển thị mã VNPay.
+### Hướng 1: Hoàn thiện UI/UX (Frontend)
+- [ ] **Responsive Design**: Kiểm tra kỹ lại giao diện trên các kích thước màn hình Mobile/Tablet.
+- [ ] **Trang Profile**: Bổ sung cập nhật ảnh đại diện (Avatar upload).
+- [ ] **Phân trang (Pagination)**: Thêm phân trang cho danh sách Sản Phẩm ở trang chủ, và danh sách đơn hàng nếu quá nhiều.
 
-### Hướng 2: Phát triển tiếp Backend (Shop Features & Payment)
-- [x] **Quản lý Sản phẩm (Product)**: Viết service và controller lấy danh sách sản phẩm `GET /api/products` và `GET /api/products/{id}`. Cần update Database bổ sung Entity liên quan `Product`, `Category`.
-- [x] **Giỏ hàng (Cart & CartItems)**: Viết API thêm/xóa/sửa sản phẩm trong giỏ hàng (Yêu cầu Authentication JWT Token).
-- [x] **Thanh toán (Payment)**: Tích hợp VNPay (đã lấy cấu hình sẵn trong `application.properties` nhưng đang bị comment lại) để thanh toán đơn hàng.
-- [x] **Order & Coupon**: Xử lý tạo đơn hàng, áp dụng mã giảm giá và xem lại lịch sử.
-- [x] **Admin & Chat**: API cho Admin xem thống kê, API cho Chat cơ bản.
+### Hướng 2: Phát triển Backend (Nâng cao)
+- [ ] **Upload File**: Cấu hình Cloudinary hoặc AWS S3 để lưu host ảnh sản phẩm, avatar người dùng thay vì lưu link tĩnh.
+- [ ] **Thống kê doanh thu**: Tối ưu API `/api/admin/stats` để biểu đồ báo cáo trên AdminDashboard tính toán chuẩn xác theo tháng/năm.
 
 ---
 
-## 🛠 3. Hướng dẫn chạy dự án cho người mới
+## ⚙️ 3. Hướng dẫn chạy dự án cho người mới
 
-**Bước 1:** Bật XAMPP / MySQL. Tạo một database rỗng tên là `sport_shop`.
-**Bước 2:** Mở Terminal ở thư mục gốc của project, di chuyển vào folder `backend`:
+**Bước 1:** Bật XAMPP / MySQL. Tạo database tên `sport_shop` (chỉ cần tạo, code sẽ tự tạo bảng vì đã set `createDatabaseIfNotExist=true` và `ddl-auto=update`).
+**Bước 2:** Chạy dữ liệu mẫu (Dummy data): Có thể chạy script `seed.sql` nếu muốn có sẵn sản phẩm và user test.
+**Bước 3:** Chạy Backend (Spring Boot) - Cổng `8080`
 ```bash
 cd backend
+.\mvnw spring-boot:run
 ```
-**Bước 3:** Chạy lệnh Maven sau để khởi động dự án:
+**Bước 4:** Chạy Frontend (React + Vite) - Cổng `3001`
 ```bash
-# Đối với Windows
-.\mvnw.cmd spring-boot:run
-
-# Đối với Mac/Linux
-./mvnw spring-boot:run
+cd frontend
+npm install
+npm run dev
 ```
-*(Nếu thành công, server sẽ chạy ở port `8080`)*
 
 ---
 
-## 📌 4. Cấu trúc thư mục hiện tại đáng chú ý
-- `backend/src/main/java/.../controller/AuthController.java`: Controller chứa các API Public.
-- `backend/src/main/java/.../security/`: Logic Filter kiểm tra JWT và cấu hình Spring Security.
-- `doc/`: Thư mục chứa các tài liệu luồng Auth cho thành viên Frontend thao tác.
-
-
+## 📁 4. Cấu trúc thư mục hiện tại đáng chú ý
+- **Backend**:
+  - `OrderService.java` & `NotificationService.java`: Chứa toàn bộ logic xử lý luồng đơn hàng và bắn WebSockets.
+  - `SecurityConfig.java`: Cấu hình phân quyền API.
+- **Frontend**:
+  - `src/pages/Orders.jsx` & `SingleOrder.jsx`: Nơi chứa config STOMP WS nhận thông báo khách hàng.
+  - `src/components/NotificationDropdown.jsx`: Chuông thông báo góc phải trên.

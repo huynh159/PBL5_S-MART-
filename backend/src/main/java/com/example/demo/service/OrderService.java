@@ -80,7 +80,7 @@ public class OrderService {
         cartItemRepository.deleteAll(cartItems);
 
         // Gửi thông báo đến Admin
-        notificationService.notifyAdmins("Có đơn hàng mới #" + savedOrder.getId() + " vừa được tạo bởi " + user.getEmail() + " với tổng tiền: " + total + " VND.");
+        notificationService.notifyAdmins("Có đơn hàng mới #" + savedOrder.getId() + " vừa được tạo bởi " + user.getEmail() + " với tổng tiền: " + total + " VND.", "/admin/orders");
 
         return savedOrder;
     }
@@ -108,10 +108,58 @@ public class OrderService {
         return orderRepository.findAll();
     }
 
+    private String getStatusMessage(String status) {
+        if (status == null) return "được cập nhật trạng thái mới";
+        switch (status.toUpperCase()) {
+            case "PENDING": return "đang chờ xác nhận";
+            case "PAID": return "đã thanh toán thành công";
+            case "PROCESSING": return "đang được chuẩn bị";
+            case "SHIPPED": return "đang được giao";
+            case "DELIVERED": return "đã giao hàng thành công";
+            case "COMPLETED": return "đã hoàn thành";
+            case "CANCELLED": return "đã bị hủy";
+            case "FAILED": return "thanh toán thất bại";
+            default: return "được cập nhật thành: " + status;
+        }
+    }
+
+    @Transactional
     public Order updateOrderStatus(Integer orderId, String status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         order.setStatus(status);
-        return orderRepository.save(order);
+        order = orderRepository.save(order);
+
+        // Thông báo realtime cho user khi admin cập nhật đơn
+        String message = "Đơn hàng #" + order.getId() + " của bạn " + getStatusMessage(status);
+        notificationService.notifyUser(order.getUser(), message, "/orders/" + order.getId());
+
+        return order;
+    }
+
+    @Transactional
+    public Order cancelOrder(String email, Integer orderId) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        // Chỉ cho phép huỷ khi CHỜ XÁC NHẬN (PENDING/PAID) hoặc ĐANG CHUẨN BỊ (PROCESSING)
+        if (!"PENDING".equals(order.getStatus()) && !"PROCESSING".equals(order.getStatus()) && !"PAID".equals(order.getStatus())) {
+            throw new RuntimeException("Không thể huỷ đơn hàng ở trạng thái hiện tại");
+        }
+
+        order.setStatus("CANCELLED");
+        order = orderRepository.save(order);
+
+        // Thông báo ngược lại cho admin biết user vừa huỷ đơn
+        notificationService.notifyAdmins("Đơn hàng #" + order.getId() + " vừa bị huỷ bởi người dùng!", "/admin/orders");
+
+        return order;
     }
 }

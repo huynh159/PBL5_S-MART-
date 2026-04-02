@@ -36,6 +36,12 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderDetails(email, id));
     }
 
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<Order> cancelOrder(Authentication authentication, @PathVariable Integer id) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(orderService.cancelOrder(email, id));
+    }
+
     // Admin APIs
     @GetMapping("/admin")
     public ResponseEntity<List<Order>> getAllOrders() {
@@ -47,4 +53,3 @@ public class OrderController {
         return ResponseEntity.ok(orderService.updateOrderStatus(id, status));
     }
 }
-

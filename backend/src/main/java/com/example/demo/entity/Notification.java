@@ -24,6 +24,9 @@ public class Notification {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "link", length = 255)
+    private String link;
+
     @Column(name = "is_read")
     private Boolean isRead;
 

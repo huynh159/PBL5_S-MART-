@@ -16,6 +16,7 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Orders from './pages/Orders';
+import SingleOrder from './pages/SingleOrder';
 import PaymentCallback from './pages/PaymentCallback';
 import Profile from './pages/Profile';
 import { AuthProvider } from './context/AuthContext';
@@ -56,6 +57,7 @@ function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/orders" element={<Orders />} />
+              <Route path="/orders/:id" element={<SingleOrder />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/chat" element={
                 <Suspense fallback={<Loading />}><Chat /></Suspense>

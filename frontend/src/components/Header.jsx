@@ -4,6 +4,7 @@ import { ShoppingCart, User, Search, LogOut, Package, MessageCircle, LayoutDashb
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { jwtDecode } from 'jwt-decode';
+import NotificationDropdown from './NotificationDropdown';
 
 const Header = () => {
   const { token, logout } = useAuth();
@@ -64,6 +65,7 @@ const Header = () => {
 
             {token ? (
               <div className="flex items-center space-x-3">
+                <NotificationDropdown token={token} />
                 {/* Admin link if role is ADMIN */}
                 {userRole === 'ADMIN' && (
                   <Link to="/admin" className="text-gray-600 hover:text-purple-600 flex items-center gap-1 hidden sm:flex transition">
