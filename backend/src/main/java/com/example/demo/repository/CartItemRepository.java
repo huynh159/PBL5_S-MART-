@@ -11,7 +11,8 @@ import java.util.Optional;
 public interface CartItemRepository extends JpaRepository<CartItem, Integer> {
     List<CartItem> findByUserId(Integer userId);
     Optional<CartItem> findByUserIdAndProductId(Integer userId, Integer productId);
-    
+    Optional<CartItem> findByUserIdAndProductIdAndColorAndSize(Integer userId, Integer productId, String color, String size);
+
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM CartItem c WHERE c.user.id = :userId")
     void deleteByUserId(@org.springframework.data.repository.query.Param("userId") Integer userId);

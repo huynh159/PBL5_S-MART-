@@ -17,6 +17,7 @@ const Checkout = () => {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cartItems, setCartItems] = useState([]);
+  const [directItemsToBuy, setDirectItemsToBuy] = useState([]); // handle Buy Now
   const [cartLoading, setCartLoading] = useState(true);
   const { fetchCartCount } = useCart();
   const { token } = useAuth();
@@ -24,14 +25,26 @@ const Checkout = () => {
   const location = useLocation();
 
   const selectedItemIds = location.state?.selectedItems || [];
+  const directItems = location.state?.directItems || [];
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
+
+    // Direct checkout logic
+    if (directItems.length > 0) {
+        setDirectItemsToBuy(directItems);
+        setCartItems([]);
+        setCartLoading(false);
+        return;
+    }
+
     if (selectedItemIds.length === 0) {
       toast.warning('Không có sản phẩm để thanh toán!');
       navigate('/cart');
       return;
     }
+
+    // Normal Cart checkout logic
     const loadCart = async () => {
       try {
         const data = await cartService.getCart();
@@ -46,7 +59,9 @@ const Checkout = () => {
     loadCart();
   }, [token, navigate, location.state]);
 
-  const subtotal = cartItems.reduce((s, item) => s + (item.product?.price || 0) * item.quantity, 0);
+  // Handle calculation for both direct buying and cart
+  const itemsToCalculate = directItemsToBuy.length > 0 ? directItemsToBuy : cartItems;
+  const subtotal = itemsToCalculate.reduce((s, item) => s + (item.price || item.product?.price || 0) * item.quantity, 0);
   const discount = couponDiscount ? Math.round(subtotal * couponDiscount / 100) : 0;
   const total = subtotal - discount;
 
@@ -71,7 +86,7 @@ const Checkout = () => {
       toast.warning('Vui lòng nhập đầy đủ thông tin giao hàng!');
       return;
     }
-    if (cartItems.length === 0) {
+    if (cartItems.length === 0 && directItemsToBuy.length === 0) {
       toast.warning('Giỏ hàng đang trống!');
       return;
     }
@@ -79,14 +94,21 @@ const Checkout = () => {
     setLoading(true);
     try {
       // Step 1: Tạo đơn hàng
-      const order = await orderService.createOrder({
+      const payload = {
         paymentMethod,
         couponCode: couponCode.trim() || null,
         address,
         phone,
         note,
-        cartItemIds: selectedItemIds
-      });
+      };
+
+      if (directItemsToBuy.length > 0) {
+          payload.directItems = directItemsToBuy;
+      } else {
+          payload.cartItemIds = selectedItemIds;
+      }
+
+      const order = await orderService.createOrder(payload);
 
       await fetchCartCount();
 
@@ -232,7 +254,7 @@ const Checkout = () => {
 
           <button
             type="submit"
-            disabled={loading || cartItems.length === 0}
+            disabled={loading || (cartItems.length === 0 && directItemsToBuy.length === 0)}
             className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl text-lg shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? 'Đang xử lý...' : paymentMethod === 'VNPAY' ? '💳 Xác Nhận & Thanh Toán VNPAY' : '📦 Xác Nhận Đặt Hàng COD'}
@@ -248,23 +270,25 @@ const Checkout = () => {
               <p className="text-gray-400 py-4 text-center">Đang tải...</p>
             ) : (
               <div className="space-y-3 mb-4">
-                {cartItems.map(item => (
-                  <div key={item.id} className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                        <img
-                          src={item.product?.imageUrl || 'https://via.placeholder.com/40'}
-                          alt={item.product?.name}
-                          className="w-full h-full object-cover"
-                        />
+                {itemsToCalculate.map((item, idx) => (
+                  <div key={item.id || `direct-${idx}`} className="flex flex-col gap-3 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                    <div className="flex gap-3">
+                      <img src={item.product?.imageUrl || 'https://via.placeholder.com/80'} alt="product" className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-800 line-clamp-2">{item.product?.name}</h4>
+                        <div className="text-xs text-gray-500 mt-1">
+                            {item.color && <span>Màu: {item.color}</span>}
+                            {item.size && <span className="ml-2 border-l border-gray-300 pl-2">Size: {item.size}</span>}
+                        </div>
+                        <div className="flex justify-between items-end mt-2">
+                          <span className="text-sm font-bold text-gray-800">
+                             {(item.price || item.product?.price || 0).toLocaleString('vi-VN')} ₫
+                          </span>
+                          <span className="text-xs font-semibold px-2 py-1 bg-gray-50 rounded-md text-gray-600">
+                            x{item.quantity}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-gray-700 truncate">{item.product?.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                      <span className="text-gray-400 text-xs">x{item.quantity}</span>
-                      <span className="font-medium text-gray-800 ml-2">
-                        {((item.product?.price || 0) * item.quantity).toLocaleString('vi-VN')} ₫
-                      </span>
                     </div>
                   </div>
                 ))}

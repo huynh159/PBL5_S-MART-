@@ -69,7 +69,10 @@ const Cart = () => {
   const calculateTotal = () => {
     return cartItems
       .filter(item => selectedItemIds.includes(item.id))
-      .reduce((total, item) => total + (item.product?.price || 0) * item.quantity, 0);
+      .reduce((total, item) => {
+          const itemPrice = item.price ? item.price : (item.product?.salePrice || item.product?.price || 0);
+          return total + itemPrice * item.quantity;
+      }, 0);
   };
 
   const handleSelectItem = (id) => {
@@ -142,8 +145,13 @@ const Cart = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-800 line-clamp-2 pr-8">{item.product?.name}</h3>
-                  <p className="text-blue-600 font-bold mt-1">
-                    {item.product?.price ? item.product.price.toLocaleString('vi-VN') : '0'} ₫
+                  {(item.color || item.size) && (
+                      <p className="text-sm text-gray-500 mt-1">
+                          Phân loại: {item.color} {item.color && item.size ? ',' : ''} {item.size}
+                      </p>
+                  )}
+                  <p className="text-red-600 font-bold mt-1 text-lg">
+                    {(item.price ? item.price : (item.product?.salePrice || item.product?.price || 0)).toLocaleString('vi-VN')} ₫
                   </p>
                   <div className="flex items-center mt-4 bg-white border rounded-lg w-max shadow-sm">
                     <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="p-2 text-gray-500 hover:bg-gray-100">

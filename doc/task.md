@@ -2,42 +2,48 @@
 
 ## AUTH
 
-* Register + OTP
-* Login JWT
-* Google OAuth2
+- [x] Register + OTP
+- [x] Login JWT
+- [x] Google OAuth2
 
 ## PRODUCT
 
-* CRUD product
-* Search
+- [x] CRUD product
+- [x] Search
+- [x] Product images upload
 
 ## CART
 
-* Add/update/remove
+- [x] Add/update/remove
 
 ## ORDER
 
-* Create order
-* History
+- [x] Create order
+- [x] History
+- [x] Real-time order status update
 
 ## COUPON
 
-* Apply coupon
+- [x] Apply coupon
 
 ## PAYMENT
 
-* VNPay integration
+- [x] VNPay integration
+- [x] COD support
 
 ## CHAT
 
-* WebSocket chat
+- [x] WebSocket chat (Admin - User)
 
 ## NOTIFICATION
 
-* Realtime notify
+- [x] Realtime notify
+- [x] Notification dropdown / Toast
 
 ## ADMIN
 
-* Manage users
-* Manage orders
-* Dashboard stats
+- [x] Manage users
+- [x] Manage orders
+- [x] Manage products
+- [ ] Dashboard stats (Chart optimization)
+- [x] Manage categories

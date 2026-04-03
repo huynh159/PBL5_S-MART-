@@ -47,8 +47,8 @@ Tài liệu này dùng để bàn giao và theo dõi tiến độ công việc g
 - [ ] **Phân trang (Pagination)**: Thêm phân trang cho danh sách Sản Phẩm ở trang chủ, và danh sách đơn hàng nếu quá nhiều.
 
 ### Hướng 2: Phát triển Backend (Nâng cao)
-- [ ] **Upload File**: Cấu hình Cloudinary hoặc AWS S3 để lưu host ảnh sản phẩm, avatar người dùng thay vì lưu link tĩnh.
-- [ ] **Thống kê doanh thu**: Tối ưu API `/api/admin/stats` để biểu đồ báo cáo trên AdminDashboard tính toán chuẩn xác theo tháng/năm.
+- [x] **Upload File**: Hệ thống đã xử lý phần upload file cho `Product` tại `UploadController`, ảnh lưu trữ tạm ở thư mục `/uploads`.
+- [ ] **Thống kê doanh thu**: Tối ưu API `/api/admin/stats` để biểu đồ báo cáo trên Admin Dashboard tính toán chuẩn xác theo tháng/năm.
 
 ---
 

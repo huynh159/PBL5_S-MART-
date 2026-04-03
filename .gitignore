@@ -64,3 +64,4 @@ $RECYCLE.BIN/
 # =========================
 # Nếu bạn không muốn đẩy thư mục database (chứa database.sql) lên Git, hãy xóa dấu # ở dòng dưới:
 # database/
+uploads/

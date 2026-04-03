@@ -9,10 +9,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class CartRequest {
+public class DirectOrderItem {
     private Integer productId;
     private Integer quantity;
     private String color;
     private String size;
     private Double price;
 }
+

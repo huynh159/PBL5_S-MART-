@@ -145,7 +145,14 @@ const AdminOrders = () => {
                       <p className="text-sm font-semibold text-gray-700 mb-2">Chi tiết sản phẩm:</p>
                       {order.orderItems.map((d, i) => (
                         <div key={i} className="flex justify-between items-center bg-white rounded-lg p-3 border border-gray-100">
-                          <span className="font-medium text-gray-700">{d.product?.name || `Sản phẩm #${d.productId || ''}`}</span>
+                          <div>
+                              <span className="font-medium text-gray-700">{d.product?.name || `Sản phẩm #${d.productId || ''}`}</span>
+                              {(d.color || d.size) && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                      Phân loại: {d.color} {d.color && d.size ? ',' : ''} {d.size}
+                                  </p>
+                              )}
+                          </div>
                           <div className="flex items-center gap-4 text-sm">
                             <span className="text-gray-500">x{d.quantity}</span>
                             <span className="font-semibold text-gray-800">

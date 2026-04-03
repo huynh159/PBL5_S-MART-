@@ -9,15 +9,21 @@ const AdminProducts = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
-  
-  const initialForm = { 
+
+  const initialForm = {
       name: '', price: '', salePrice: '', sku: '',
-      description: '', stock: '', imageUrl: '', 
-      categoryId: '', status: 'ACTIVE', brand: '', variations: '' 
+      description: '', stock: '', imageUrl: '', imageUrls: [],
+      categoryId: '', status: 'ACTIVE', brand: '', variations: ''
   };
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
+
+  // States for bulk variant generation
+  const [bulkColors, setBulkColors] = useState('');
+  const [bulkSizes, setBulkSizes] = useState('');
+
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [search, setSearch] = useState('');
 
   const fetchData = async () => {
@@ -41,24 +47,29 @@ const AdminProducts = () => {
 
   const openAdd = () => {
     setEditProduct(null);
-    setForm({ ...initialForm, categoryId: categories.length > 0 ? categories[0].id : '' });
+    setForm({ ...initialForm, categoryId: categories.length > 0 ? categories[0].id : '', variations: '[]' });
+    setBulkColors('');
+    setBulkSizes('');
     setShowModal(true);
   };
 
   const openEdit = (p) => {
     setEditProduct(p);
-    setForm({ 
-        name: p.name, 
-        price: p.price, 
+    setBulkColors('');
+    setBulkSizes('');
+    setForm({
+        name: p.name,
+        price: p.price,
         salePrice: p.salePrice || '',
         sku: p.sku || '',
-        description: p.description || '', 
-        stock: p.stock, 
+        description: p.description || '',
+        stock: p.stock,
         imageUrl: p.imageUrl || '',
+        imageUrls: p.imageUrls || [],
         categoryId: p.category?.id || '',
         status: p.status || 'ACTIVE',
         brand: p.brand || '',
-        variations: p.variations || '',
+        variations: p.variations || '[]',
     });
     setShowModal(true);
   };
@@ -78,22 +89,58 @@ const AdminProducts = () => {
       }
   };
 
+  const handleMultipleImagesUpload = async (e) => {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      setUploadingImages(true);
+      try {
+          const uploadPromises = files.map(file => productService.uploadImage(file));
+          const results = await Promise.all(uploadPromises);
+          const urls = results.map(res => res.url);
+          setForm(f => ({ ...f, imageUrls: [...(f.imageUrls || []), ...urls] }));
+          toast.success("Tải ảnh thành công");
+      } catch (err) {
+          toast.error("Lỗi khi tải ảnh lên");
+      } finally {
+          setUploadingImages(false);
+      }
+  };
+
+  const removeMultipleImage = (index) => {
+      setForm(f => {
+          const newUrls = [...f.imageUrls];
+          newUrls.splice(index, 1);
+          return { ...f, imageUrls: newUrls };
+      });
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.price || !form.stock || !form.categoryId) {
+    if (!form.name || !form.price || !form.categoryId) {
       toast.warning('Vui lòng điền đầy đủ thông tin bắt buộc!');
       return;
     }
     setSaving(true);
     try {
-      const payload = { 
-          ...form, 
-          price: parseFloat(form.price), 
+      // Calculate total stock from variations if existing
+      let parsedVariations = [];
+      try {
+        parsedVariations = JSON.parse(form.variations || '[]');
+      } catch(e) {}
+
+      let totalStock = parseInt(form.stock) || 0;
+      if (parsedVariations.length > 0) {
+        totalStock = parsedVariations.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+      }
+
+      const payload = {
+          ...form,
+          price: parseFloat(form.price),
           salePrice: form.salePrice ? parseFloat(form.salePrice) : null,
-          stock: parseInt(form.stock),
+          stock: totalStock,
           categoryId: parseInt(form.categoryId)
       };
-      
+
       if (editProduct) {
         await productService.updateProduct(editProduct.id, payload);
         toast.success('Cập nhật sản phẩm thành công!');
@@ -346,32 +393,181 @@ const AdminProducts = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Số lượng kho <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Số lượng kho tổng <span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     value={form.stock}
                     onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="100"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
+                    placeholder="Sẽ tự tính nếu có biến thể"
                     min="0"
-                    required
+                    disabled
                   />
                 </div>
               </div>
 
               {/* Row 4: Biến thể (Kích cỡ, màu sắc) */}
-              <div>
-                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Biến thể (Kích cỡ/Màu sắc)</label>
-                 <input
-                    type="text"
-                    value={form.variations}
-                    onChange={e => setForm(f => ({ ...f, variations: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="VD: 39, 40, 41 hoặc Đỏ, Đen, Trắng (Phân cách bằng dấu phẩy)"
-                  />
+              <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm space-y-4">
+                 <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                     <label className="block text-sm font-bold text-gray-800">Quản lý Biến thể (Màu sắc, Size, Giá riêng)</label>
+                     <button
+                        type="button"
+                        onClick={() => {
+                            let vars = [];
+                            try { vars = JSON.parse(form.variations || '[]'); } catch(e) {}
+                            vars.push({ color: '', size: '', stock: 0, price: '' });
+                            setForm(f => ({ ...f, variations: JSON.stringify(vars) }));
+                        }}
+                        className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-100 transition"
+                     >
+                        + Thêm 1 dòng
+                     </button>
+                 </div>
+
+                 {/* Bulk Generator */}
+                 <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 space-y-3">
+                    <p className="text-xs font-semibold text-blue-800">Tạo Nhanh Biến Thể</p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <input
+                            type="text" placeholder="Nhập các màu (VD: Đen, Trắng, Đỏ)" value={bulkColors}
+                            onChange={(e) => setBulkColors(e.target.value)}
+                            className="flex-1 px-3 py-2 border border-blue-200 rounded-md text-sm outline-none focus:border-blue-500"
+                        />
+                        <input
+                            type="text" placeholder="Nhập các size (VD: S, M, 38, 39)" value={bulkSizes}
+                            onChange={(e) => setBulkSizes(e.target.value)}
+                            className="flex-1 px-3 py-2 border border-blue-200 rounded-md text-sm outline-none focus:border-blue-500"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const colorsArr = bulkColors.split(',').map(s=>s.trim()).filter(Boolean);
+                                const sizesArr = bulkSizes.split(',').map(s=>s.trim()).filter(Boolean);
+                                if (!colorsArr.length && !sizesArr.length) {
+                                    toast.warning('Vui lòng nhập màu hoặc size để tạo');
+                                    return;
+                                }
+
+                                const baseColors = colorsArr.length > 0 ? colorsArr : [''];
+                                const baseSizes = sizesArr.length > 0 ? sizesArr : [''];
+
+                                let newVars = [];
+                                baseColors.forEach(c => {
+                                    baseSizes.forEach(s => {
+                                        newVars.push({ color: c, size: s, stock: 0, price: '' });
+                                    });
+                                });
+
+                                setForm(f => ({ ...f, variations: JSON.stringify(newVars) }));
+                                toast.success(`Đã tạo ${newVars.length} biến thể`);
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-semibold hover:bg-blue-700 transition whitespace-nowrap shadow-sm"
+                        >
+                            Tự động tạo
+                        </button>
+                    </div>
+                    <p className="text-[11px] text-blue-600 italic">*Lưu ý: Bấm tạo tự động sẽ ghi đè các biến thể đang có.</p>
+                 </div>
+
+                 <div className="space-y-3 pt-2 max-h-[400px] overflow-y-auto pr-2">
+                     {(() => {
+                         let vars = [];
+                         try { vars = JSON.parse(form.variations || '[]'); } catch(e) {}
+
+                         if(vars.length === 0) return <div className="text-sm text-gray-500 italic">Chưa có biến thể nào. Sản phẩm sẽ sử dụng tồn kho/giá mặc định. <button type="button" onClick={()=>setForm(f=>({...f, disabledStock:false}))} className="text-blue-500 underline ml-2">Nhập tay kho tổng</button></div>;
+
+                         // Group variations by color for better UI
+                         const grouped = vars.reduce((acc, current, index) => {
+                             const c = current.color || '(Không xác định)';
+                             if (!acc[c]) acc[c] = [];
+                             acc[c].push({ ...current, originalIndex: index });
+                             return acc;
+                         }, {});
+
+                         return Object.entries(grouped).map(([colorKey, items]) => (
+                             <div key={colorKey} className="border border-blue-100 rounded-lg overflow-hidden bg-white mb-4 shadow-sm">
+                                 <div className="bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 border-b border-blue-100 flex items-center gap-2">
+                                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                     Nhóm Màu: {colorKey}
+                                 </div>
+                                 <div className="p-3 space-y-2">
+                                     {items.map((v) => {
+                                         const idx = v.originalIndex;
+                                         return (
+                                            <div key={idx} className="flex flex-wrap items-center gap-3 bg-gray-50 p-2.5 rounded-lg border border-gray-100 transition-colors hover:border-blue-300">
+                                                <div className="flex-1 min-w-[100px]">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Đổi Màu</label>
+                                                    <input
+                                                        type="text" placeholder="Đỏ" value={vars[idx].color || ''}
+                                                        onChange={(e) => {
+                                                            const newVars = [...vars];
+                                                            newVars[idx].color = e.target.value;
+                                                            setForm(f => ({...f, variations: JSON.stringify(newVars)}));
+                                                        }}
+                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div className="flex-1 min-w-[90px]">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Size</label>
+                                                    <input
+                                                        type="text" placeholder="38" value={vars[idx].size || ''}
+                                                        onChange={(e) => {
+                                                            const newVars = [...vars];
+                                                            newVars[idx].size = e.target.value;
+                                                            setForm(f => ({...f, variations: JSON.stringify(newVars)}));
+                                                        }}
+                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div className="w-24">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Kho</label>
+                                                    <input
+                                                        type="number" placeholder="Kho" value={vars[idx].stock !== undefined ? vars[idx].stock : 0} min="0"
+                                                        onChange={(e) => {
+                                                            const newVars = [...vars];
+                                                            newVars[idx].stock = parseInt(e.target.value) || 0;
+                                                            const total = newVars.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
+                                                            setForm(f => ({...f, variations: JSON.stringify(newVars), stock: total}));
+                                                        }}
+                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500"
+                                                    />
+                                                </div>
+                                                <div className="w-28">
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Giá Riêng</label>
+                                                    <input
+                                                        type="number" placeholder="Bỏ trống" value={vars[idx].price || ''} min="0"
+                                                        onChange={(e) => {
+                                                            const newVars = [...vars];
+                                                            newVars[idx].price = e.target.value ? parseInt(e.target.value) : '';
+                                                            setForm(f => ({...f, variations: JSON.stringify(newVars)}));
+                                                        }}
+                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500 text-blue-700 font-semibold"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    title="Xóa biến thể này"
+                                                    onClick={() => {
+                                                        const newVars = [...vars];
+                                                        newVars.splice(idx, 1);
+                                                        const total = newVars.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
+                                                        setForm(f => ({...f, variations: JSON.stringify(newVars), stock: total}));
+                                                    }}
+                                                    className="w-8 h-8 flex items-center justify-center mt-4 text-red-500 hover:bg-red-100 rounded-md transition"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                         );
+                                     })}
+                                 </div>
+                             </div>
+                         ));
+                     })()}
+                 </div>
               </div>
 
-              {/* Row 5: Ảnh */}
+              {/* Ảnh */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Hình ảnh sản phẩm</label>
                 <div className="flex items-start gap-4">
@@ -399,21 +595,37 @@ const AdminProducts = () => {
                             </div>
                         )}
                     </div>
-                    
-                    <div className="flex-1 space-y-2">
-                        <span className="text-xs text-gray-500 block">Hoặc dán URL liên kết hình ảnh trực tiếp:</span>
-                        <input
-                          type="url"
-                          value={form.imageUrl}
-                          onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                          placeholder="https://..."
-                        />
+                </div>
+
+                <div className="mt-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Ảnh phụ sản phẩm</label>
+                    <div className="flex flex-wrap gap-4 items-start">
+                        {(form.imageUrls || []).map((url, index) => (
+                            <div key={index} className="w-24 h-24 relative group border border-gray-200 rounded-lg overflow-hidden">
+                                <img src={url} alt={`Phụ ${index}`} className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <button type="button" onClick={() => removeMultipleImage(index)} className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+
+                        <label className="cursor-pointer flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors text-gray-400 hover:text-blue-500 relative">
+                            <Upload className="w-6 h-6 mb-1" />
+                            <span className="text-[10px] font-medium text-center">Tải ảnh lên</span>
+                            <input type="file" accept="image/*" multiple onChange={handleMultipleImagesUpload} className="hidden" />
+                            {uploadingImages && (
+                                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                                    <span className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                                </div>
+                            )}
+                        </label>
                     </div>
                 </div>
               </div>
 
-              {/* Row 6: Mô tả */}
+              {/* Mô tả */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mô tả chi tiết</label>
                 <textarea

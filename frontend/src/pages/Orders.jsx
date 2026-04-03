@@ -167,6 +167,11 @@ const Orders = () => {
                          </div>
                          <div>
                           <div className="font-medium text-gray-800">{detail.product?.name || 'Sản phẩm'}</div>
+                          {(detail.color || detail.size) && (
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                  Phân loại: {detail.color} {detail.color && detail.size ? ',' : ''} {detail.size}
+                              </div>
+                          )}
                           <div className="text-sm text-gray-500">{(detail.price || detail.product?.price || 0).toLocaleString('vi-VN')} ₫</div>
                           <div className="text-sm font-medium mt-1">x{detail.quantity}</div>
                          </div>

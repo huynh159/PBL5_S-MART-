@@ -1,5 +1,6 @@
 package com.example.demo.dto;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,6 +16,7 @@ public class ProductRequest {
     private String description;
     private Integer stock;
     private String imageUrl;
+    private List<String> imageUrls;
     private String brand;
     private Double salePrice;
     private String sku;

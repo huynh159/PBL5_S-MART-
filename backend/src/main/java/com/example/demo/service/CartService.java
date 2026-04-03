@@ -29,19 +29,30 @@ public class CartService {
     @Transactional
     public CartItem addToCart(String email, CartRequest request) {
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
-        Product product = productRepository.findById(request.getProductId()).orElseThrow(() -> new RuntimeException("Product not found"));
+        Product product = productRepository.findById(request.getProductId()).orElseThrow(() -> new RuntimeException("Product not found"));      
 
-        Optional<CartItem> existingItem = cartItemRepository.findByUserIdAndProductId(user.getId(), product.getId());
-        
+        Optional<CartItem> existingItem;
+        if (request.getColor() != null || request.getSize() != null) {
+            existingItem = cartItemRepository.findByUserIdAndProductIdAndColorAndSize(user.getId(), product.getId(), request.getColor(), request.getSize());
+        } else {
+            existingItem = cartItemRepository.findByUserIdAndProductId(user.getId(), product.getId());
+        }
+
         if (existingItem.isPresent()) {
             CartItem cartItem = existingItem.get();
             cartItem.setQuantity(cartItem.getQuantity() + request.getQuantity());
+            if (request.getPrice() != null) {
+                cartItem.setPrice(request.getPrice());
+            }
             return cartItemRepository.save(cartItem);
         } else {
             CartItem newItem = CartItem.builder()
                     .user(user)
                     .product(product)
                     .quantity(request.getQuantity())
+                    .color(request.getColor())
+                    .size(request.getSize())
+                    .price(request.getPrice() != null ? request.getPrice() : (product.getSalePrice() != null ? product.getSalePrice().doubleValue() : product.getPrice().doubleValue()))
                     .build();
             return cartItemRepository.save(newItem);
         }
@@ -78,4 +89,3 @@ public class CartService {
          cartItemRepository.deleteByUserId(user.getId());
     }
 }
-

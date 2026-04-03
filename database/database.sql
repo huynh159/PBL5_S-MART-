@@ -31,8 +31,13 @@ brand VARCHAR(255),
 sale_price DOUBLE,
 sku VARCHAR(255) UNIQUE,
 status VARCHAR(50) DEFAULT 'ACTIVE',
-variations VARCHAR(255),
+variations LONGTEXT,
 FOREIGN KEY (category_id) REFERENCES categories(id)
+);
+
+CREATE TABLE product_images (
+product_id INT,
+image_url VARCHAR(255)
 );
 
 CREATE TABLE coupons (
@@ -102,6 +107,7 @@ created_at TIMESTAMP
 -- Foreign keys (defined last to avoid dependency issues on initial import)
 ALTER TABLE orders ADD CONSTRAINT fk_orders_users FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE orders ADD CONSTRAINT fk_orders_coupons FOREIGN KEY (coupon_id) REFERENCES coupons(id);
+ALTER TABLE product_images ADD CONSTRAINT fk_product_images_products FOREIGN KEY (product_id) REFERENCES products(id);
 ALTER TABLE order_items ADD CONSTRAINT fk_order_items_orders FOREIGN KEY (order_id) REFERENCES orders(id);
 ALTER TABLE order_items ADD CONSTRAINT fk_order_items_products FOREIGN KEY (product_id) REFERENCES products(id);
 ALTER TABLE cart_items ADD CONSTRAINT fk_cart_items_users FOREIGN KEY (user_id) REFERENCES users(id);

@@ -26,27 +26,65 @@ public class OrderService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        List<CartItem> cartItems = cartItemRepository.findByUserId(user.getId());
-        if (request.getCartItemIds() != null && !request.getCartItemIds().isEmpty()) {
-            cartItems = cartItems.stream()
-                .filter(item -> request.getCartItemIds().contains(item.getId()))
-                .collect(java.util.stream.Collectors.toList());
-        }
-        if (cartItems.isEmpty()) {
-            throw new RuntimeException("Cart is empty or no valid items selected");
-        }
-
         double total = 0;
-        for (CartItem item : cartItems) {
-            total += item.getProduct().getPrice() * item.getQuantity();
+        List<CartItem> cartItemsToCheckout = new java.util.ArrayList<>();
+        List<OrderItem> preparedOrderItems = new java.util.ArrayList<>();
 
-            // Deduct stock
-            Product product = item.getProduct();
-            if (product.getStock() < item.getQuantity()) {
-                throw new RuntimeException("Not enough stock for product: " + product.getName());
+        // Case 1: Checkout via Cart
+        if (request.getCartItemIds() != null && !request.getCartItemIds().isEmpty()) {
+            List<CartItem> allCartItems = cartItemRepository.findByUserId(user.getId());
+            cartItemsToCheckout = allCartItems.stream()
+                    .filter(item -> request.getCartItemIds().contains(item.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+            if (cartItemsToCheckout.isEmpty()) {
+                 throw new RuntimeException("No valid cart items selected");
             }
-            product.setStock(product.getStock() - item.getQuantity());
-            productRepository.save(product);
+            for (CartItem item : cartItemsToCheckout) {
+                total += item.getPrice() != null ? item.getPrice() * item.getQuantity() : item.getProduct().getPrice() * item.getQuantity();
+
+                Product product = item.getProduct();
+                if (product.getStock() < item.getQuantity()) {
+                    throw new RuntimeException("Not enough stock for product: " + product.getName());
+                }
+                product.setStock(product.getStock() - item.getQuantity());
+                productRepository.save(product);
+
+                OrderItem orderItem = OrderItem.builder()
+                        .product(item.getProduct())
+                        .quantity(item.getQuantity())
+                        .color(item.getColor())
+                        .size(item.getSize())
+                        .price(item.getPrice() != null ? item.getPrice() : product.getPrice())
+                        .build();
+                preparedOrderItems.add(orderItem);
+            }
+        } 
+        // Case 2: Checkout Direct (Buy Now)
+        else if (request.getDirectItems() != null && !request.getDirectItems().isEmpty()) {
+            for (com.example.demo.dto.DirectOrderItem directReq : request.getDirectItems()) {
+                Product product = productRepository.findById(directReq.getProductId())
+                      .orElseThrow(() -> new RuntimeException("Product not found"));
+
+                double currentPrice = directReq.getPrice() != null ? directReq.getPrice() : product.getPrice();
+                total += currentPrice * directReq.getQuantity();
+
+                if (product.getStock() < directReq.getQuantity()) {
+                    throw new RuntimeException("Not enough stock for product: " + product.getName());
+                }
+                product.setStock(product.getStock() - directReq.getQuantity());
+                productRepository.save(product);
+
+                OrderItem orderItem = OrderItem.builder()
+                        .product(product)
+                        .quantity(directReq.getQuantity())
+                        .color(directReq.getColor())
+                        .size(directReq.getSize())
+                        .price(currentPrice)
+                        .build();
+                preparedOrderItems.add(orderItem);
+            }
+        } else {
+            throw new RuntimeException("No items to checkout");
         }
 
         Coupon coupon = null;
@@ -68,16 +106,14 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        for (CartItem item : cartItems) {
-            OrderItem orderItem = OrderItem.builder()
-                    .order(savedOrder)
-                    .product(item.getProduct())
-                    .quantity(item.getQuantity())
-                    .build();
-            orderItemRepository.save(orderItem);
+        for (OrderItem oi : preparedOrderItems) {
+            oi.setOrder(savedOrder);
+            orderItemRepository.save(oi);
         }
 
-        cartItemRepository.deleteAll(cartItems);
+        if (!cartItemsToCheckout.isEmpty()) {
+            cartItemRepository.deleteAll(cartItemsToCheckout);
+        }
 
         // Gửi thông báo đến Admin
         notificationService.notifyAdmins("Có đơn hàng mới #" + savedOrder.getId() + " vừa được tạo bởi " + user.getEmail() + " với tổng tiền: " + total + " VND.", "/admin/orders");

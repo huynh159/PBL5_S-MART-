@@ -6,8 +6,9 @@ const cartService = {
     return response.data;
   },
 
-  addToCart: async (productId, quantity) => {
-    const response = await api.post('/cart', { productId, quantity });
+  addToCart: async (payload) => {
+    // payload can be { productId, quantity, color, size, price }
+    const response = await api.post('/cart', payload);
     return response.data;
   },
 

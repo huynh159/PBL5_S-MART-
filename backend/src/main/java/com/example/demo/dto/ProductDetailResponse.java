@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -18,6 +20,7 @@ public class ProductDetailResponse {
     private String description;
     private Integer stock;
     private String imageUrl;
+    private List<String> imageUrls;
     private String brand;
     private Double salePrice;
     private String sku;
@@ -37,6 +40,7 @@ public class ProductDetailResponse {
                 .description(product.getDescription())
                 .stock(product.getStock())
                 .imageUrl(product.getImageUrl())
+                .imageUrls(product.getImageUrls())
                 .brand(product.getBrand())
                 .salePrice(product.getSalePrice())
                 .sku(product.getSku())
@@ -47,4 +51,3 @@ public class ProductDetailResponse {
                 .build();
     }
 }
-

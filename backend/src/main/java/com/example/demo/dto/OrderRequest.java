@@ -15,6 +15,7 @@ public class OrderRequest {
     private String paymentMethod; // "COD", "VNPAY"
     private String couponCode;
     private List<Integer> cartItemIds;
+    private List<DirectOrderItem> directItems; // Used for "Buy Now" direct purchase
     private String address;
     private String phone;
     private String note;

@@ -62,6 +62,7 @@ public class ProductService {
                 .description(request.getDescription())
                 .stock(request.getStock())
                 .imageUrl(request.getImageUrl())
+                .imageUrls(request.getImageUrls() != null ? request.getImageUrls() : new java.util.ArrayList<>())
                 .brand(request.getBrand())
                 .salePrice(request.getSalePrice())
                 .sku(request.getSku())
@@ -82,6 +83,7 @@ public class ProductService {
         existing.setDescription(request.getDescription());
         existing.setStock(request.getStock());
         existing.setImageUrl(request.getImageUrl());
+        existing.setImageUrls(request.getImageUrls() != null ? request.getImageUrls() : new java.util.ArrayList<>());
         existing.setBrand(request.getBrand());
         existing.setSalePrice(request.getSalePrice());
         existing.setSku(request.getSku());
