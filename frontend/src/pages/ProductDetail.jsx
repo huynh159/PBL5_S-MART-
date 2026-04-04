@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ShoppingCart, ArrowLeft, MessageCircle, Star, CreditCard, CheckCheck } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, MessageCircle, Star, CreditCard, CheckCheck, ThumbsUp } from 'lucide-react';
 import productService from '../services/product.service';
 import cartService from '../services/cart.service';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +24,7 @@ const ProductDetail = () => {
   const [averageRating, setAverageRating] = useState(0);
   const [totalSold, setTotalSold] = useState(0);
   const [reviews, setReviews] = useState([]);
+  const [reviewFilter, setReviewFilter] = useState('ALL');
 
   const { token } = useAuth();
   const { fetchCartCount } = useCart();
@@ -98,6 +99,21 @@ const ProductDetail = () => {
       return null;
     } finally {
       setAddingToCart(false);
+    }
+  };
+
+  const handleLikeReview = async (reviewId) => {
+    if (!token) {
+      toast.warning('Vui lòng đăng nhập để thích đánh giá!');
+      return;
+    }
+    try {
+      const { default: api } = await import('../services/api');
+      const res = await api.put(`/reviews/${reviewId}/like`);
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, likes: res.data.likes } : r));
+    } catch (err) {
+      console.error(err);
+      toast.error('Có lỗi xảy ra khi thích đánh giá');
     }
   };
 
@@ -386,16 +402,16 @@ const ProductDetail = () => {
           <div className="md:w-1/4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-200 pb-6 md:pb-0">
             <span className="text-5xl font-extrabold text-yellow-500 mb-2">{averageRating.toFixed(1)}</span>
             {renderStars(averageRating, 'w-6 h-6')}
-            <span className="text-gray-500">{reviews.length} Đánh Giá</span>
+            <span className="text-gray-500 mt-2">{reviews.length} Đánh Giá</span>
           </div>
 
           <div className="flex-1 flex flex-wrap gap-3 content-start text-sm">
-            <button className="px-6 py-2 border border-blue-600 text-blue-600 bg-white rounded-full font-medium">Tất cả</button>
-            <button className="px-6 py-2 border border-gray-200 text-gray-600 bg-white rounded-full hover:border-gray-400 transition">5 Sao</button>
-            <button className="px-6 py-2 border border-gray-200 text-gray-600 bg-white rounded-full hover;border-gray-400 transition">4 Sao</button>
-            <button className="px-6 py-2 border border-gray-200 text-gray-600 bg-white rounded-full hover:border-gray-400 transition">3 Sao</button>
-            <button className="px-6 py-2 border border-gray-200 text-gray-600 bg-white rounded-full hover:border-gray-400 transition">2 Sao</button>
-            <button className="px-6 py-2 border border-gray-200 text-gray-600 bg-white rounded-full hover;border-gray-400 transition">1 Sao</button>
+            <button onClick={() => setReviewFilter('ALL')} className={`px-6 py-2 border rounded-full font-medium transition ${reviewFilter === 'ALL' ? 'border-blue-600 text-blue-600 bg-white' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'}`}>Tất cả</button>
+            <button onClick={() => setReviewFilter(5)} className={`px-6 py-2 border rounded-full font-medium transition ${reviewFilter === 5 ? 'border-blue-600 text-blue-600 bg-white' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'}`}>5 Sao</button>
+            <button onClick={() => setReviewFilter(4)} className={`px-6 py-2 border rounded-full font-medium transition ${reviewFilter === 4 ? 'border-blue-600 text-blue-600 bg-white' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'}`}>4 Sao</button>
+            <button onClick={() => setReviewFilter(3)} className={`px-6 py-2 border rounded-full font-medium transition ${reviewFilter === 3 ? 'border-blue-600 text-blue-600 bg-white' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'}`}>3 Sao</button>
+            <button onClick={() => setReviewFilter(2)} className={`px-6 py-2 border rounded-full font-medium transition ${reviewFilter === 2 ? 'border-blue-600 text-blue-600 bg-white' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'}`}>2 Sao</button>
+            <button onClick={() => setReviewFilter(1)} className={`px-6 py-2 border rounded-full font-medium transition ${reviewFilter === 1 ? 'border-blue-600 text-blue-600 bg-white' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'}`}>1 Sao</button>
           </div>
         </div>
 
@@ -404,13 +420,13 @@ const ProductDetail = () => {
             <p className="text-gray-400 text-sm">Chưa có đánh giá nào cho sản phẩm này.</p>
           )}
 
-          {reviews.map(review => (
-            <div key={review.id} className="border-b border-gray-100 pb-6 last:border-0">
+          {reviews.filter(r => reviewFilter === 'ALL' || r.rating === reviewFilter).map(review => (
+            <div key={review.id} className="border-b border-gray-100 pb-6 last:border-0 pt-4">
               <div className="flex items-start gap-4">
                 <img
-                  src={review.user?.avatarUrl || 'https://via.placeholder.com/40'}
+                  src={review.user?.avatarUrl || 'https://ui-avatars.com/api/?name=' + (review.user?.email || 'User') + '&background=random'}
                   alt="avatar"
-                  className="w-12 h-12 rounded-full object-cover"
+                  className="w-12 h-12 rounded-full object-cover border border-gray-200"
                 />
                 <div className="flex-1">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1">
@@ -422,13 +438,41 @@ const ProductDetail = () => {
                   <div className="mb-2">
                     {renderStars(review.rating, 'w-4 h-4')}
                   </div>
-                  <div className="text-gray-500 text-xs mb-2 flex items-center gap-2">
-                    <span>Phân loại hàng: {selectedColor}, {selectedSize}</span>
+                  <div className="text-gray-500 text-xs mb-3 flex flex-wrap items-center gap-2">
+                    {review.variation && (
+                      <span className="bg-gray-100 px-2 py-1 rounded text-gray-600">{review.variation}</span>
+                    )}
                     <span className="text-green-600 border border-green-200 bg-green-50 px-2 py-0.5 rounded flex items-center gap-1">
                       <CheckCheck className="w-3 h-3" /> Đã mua hàng
                     </span>
                   </div>
-                  <p className="text-gray-700 whitespace-pre-line">{review.comment}</p>
+                  <p className="text-gray-700 whitespace-pre-line leading-relaxed mb-3">{review.comment}</p>
+
+                  {review.images && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {(() => {
+                          let imgs = [];
+                          try {
+                              imgs = JSON.parse(review.images);
+                          } catch(e) {
+                              imgs = review.images ? [review.images] : [];
+                          }
+                          return imgs.map((img, idx) => (
+                              <img key={idx} src={img} alt={`Review attachment ${idx}`} className="w-24 h-24 object-cover rounded-lg border border-gray-200 cursor-pointer shadow-sm hover:opacity-90 transition" onError={(e) => e.target.style.display='none'} />
+                          ));
+                      })()}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-4 mt-2">
+                    <button
+                      onClick={() => handleLikeReview(review.id)}
+                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 transition"
+                    >
+                      <ThumbsUp className="w-4 h-4" />
+                      Hữu ích {review.likes > 0 ? `(${review.likes})` : ''}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

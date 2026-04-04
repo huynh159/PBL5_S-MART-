@@ -2,12 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Users, ShoppingBag, FileText, DollarSign, Bell, BellOff } from 'lucide-react';
 import adminService from '../../services/admin.service';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
-    totalUsers: 0, totalProducts: 0, totalOrders: 0, totalRevenue: 0
+    totalUsers: 0, totalProducts: 0, totalOrders: 0, totalRevenue: 0,
+    orderStatusStats: [], revenueByMonth: [], availableYears: [], selectedYear: new Date().getFullYear()
   });
   const [loading, setLoading] = useState(true);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [notifications, setNotifications] = useState([]);
   const [wsStatus, setWsStatus] = useState('connecting');
   const { token } = useAuth();
@@ -17,7 +20,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await adminService.getStats();
+        const data = await adminService.getStats(selectedYear);
         setStats(data);
       } catch (err) {
         console.error('Lỗi lấy thống kê', err);
@@ -26,7 +29,7 @@ const AdminDashboard = () => {
       }
     };
     fetchStats();
-  }, [token]);
+  }, [token, selectedYear]);
 
   // Load notification history + WebSocket
   useEffect(() => {
@@ -87,7 +90,7 @@ const AdminDashboard = () => {
                 <p className="text-sm text-gray-500 font-medium">{c.label}</p>
                 <p className="text-2xl font-bold text-gray-800">
                   {loading ? '...' : c.key === 'totalRevenue'
-                    ? `${(val || 0).toLocaleString('vi-VN')} ₫`
+                    ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0)
                     : val || 0
                   }
                 </p>
@@ -96,6 +99,92 @@ const AdminDashboard = () => {
           );
         })}
       </div>
+
+      {/* Charts Section */}
+      {!loading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Revenue Area Chart */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Doanh thu theo tháng</h2>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-3 py-1 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              >
+                {(stats.availableYears || [new Date().getFullYear()]).map(year => (
+                  <option key={year} value={year}>Năm {year}</option>
+                ))}
+              </select>
+            </div>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats.revenueByMonth || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} tickFormatter={(value) => new Intl.NumberFormat('vi-VN', {notation: "compact", compactDisplay: "short"}).format(value)} />
+                  <Tooltip
+                    formatter={(value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)}
+                    labelStyle={{color: '#374151'}}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Doanh thu" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Order Status Pie Chart */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Trạng thái đơn hàng</h2>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.orderStatusStats || []}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={5}
+                    dataKey="value"
+                    nameKey="name"
+                  >
+                    {(stats.orderStatusStats || []).map((entry, index) => {
+                       const colors = {
+                         PENDING: '#f59e0b',
+                         CONFIRMED: '#8b5cf6',
+                         SHIPPING: '#0ea5e9',
+                         DELIVERED: '#22c55e',
+                         CANCELLED: '#ef4444'
+                       };
+                       return <Cell key={`cell-${index}`} fill={colors[entry.name] || '#94a3b8'} />;
+                    })}
+                  </Pie>
+                  <Tooltip formatter={(value) => [value + ' đơn', 'Số lượng']} />
+                  <Legend
+                    formatter={(value) => {
+                      const labels = {
+                        PENDING: 'Chờ xử lý',
+                        CONFIRMED: 'Đã xác nhận',
+                        SHIPPING: 'Đang giao',
+                        DELIVERED: 'Thành công',
+                        CANCELLED: 'Đã hủy'
+                      };
+                      return labels[value] || value;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Realtime Notifications */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

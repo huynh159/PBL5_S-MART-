@@ -30,6 +30,19 @@ public class Review {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    @Column(columnDefinition = "TEXT")
+    private String images;
+
+    @Column(length = 255)
+    private String variation;
+
+    @Column(name = "likes", columnDefinition = "integer default 0")
+    @Builder.Default
+    private Integer likes = 0;
+
+    @Column(name = "order_item_id")
+    private Integer orderItemId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -38,4 +51,3 @@ public class Review {
         createdAt = LocalDateTime.now();
     }
 }
-

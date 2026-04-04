@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Search, LogOut, Package, MessageCircle, LayoutDashboard } from 'lucide-react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { ShoppingCart, User, Search, LogOut, Package, MessageCircle, LayoutDashboard, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { jwtDecode } from 'jwt-decode';
@@ -54,40 +54,45 @@ const Header = () => {
           {/* Actions */}
           <div className="flex items-center space-x-4">
             {/* Cart */}
-            <Link to="/cart" className="text-gray-600 hover:text-blue-600 relative p-2 transition">
+            <NavLink to="/cart" className={({ isActive }) => `relative p-2 transition ${isActive ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}>
               <ShoppingCart className="h-6 w-6" />
               {cartCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
-            </Link>
+            </NavLink>
 
             {token ? (
               <div className="flex items-center space-x-3">
                 <NotificationDropdown token={token} />
                 {/* Admin link if role is ADMIN */}
                 {userRole === 'ADMIN' && (
-                  <Link to="/admin" className="text-gray-600 hover:text-purple-600 flex items-center gap-1 hidden sm:flex transition">
+                  <NavLink to="/admin" className={({ isActive }) => `flex items-center gap-1 hidden sm:flex transition ${isActive ? 'text-purple-600 font-bold border-b-2 border-purple-600 pb-1' : 'text-gray-600 hover:text-purple-600'}`}>
                     <LayoutDashboard className="h-5 w-5" />
                     <span className="font-medium text-sm">Admin</span>
-                  </Link>
+                  </NavLink>
                 )}
+                {/* Home */}
+                <NavLink to="/" end className={({ isActive }) => `flex items-center gap-1 hidden sm:flex transition ${isActive ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1' : 'text-gray-600 hover:text-blue-600'}`}>
+                  <Home className="h-5 w-5" />
+                  <span className="font-medium text-sm">Trang chủ</span>
+                </NavLink>
                 {/* Chat */}
-                <Link to="/chat" className="text-gray-600 hover:text-blue-600 flex items-center gap-1 hidden sm:flex transition">
+                <NavLink to="/chat" className={({ isActive }) => `flex items-center gap-1 hidden sm:flex transition ${isActive ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1' : 'text-gray-600 hover:text-blue-600'}`}>
                   <MessageCircle className="h-5 w-5" />
                   <span className="font-medium text-sm">Chat</span>
-                </Link>
+                </NavLink>
                 {/* Orders */}
-                <Link to="/orders" className="text-gray-600 hover:text-blue-600 flex items-center gap-1 hidden sm:flex transition">
+                <NavLink to="/orders" className={({ isActive }) => `flex items-center gap-1 hidden sm:flex transition ${isActive ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1' : 'text-gray-600 hover:text-blue-600'}`}>
                   <Package className="h-5 w-5" />
                   <span className="font-medium text-sm">Đơn mua</span>
-                </Link>
+                </NavLink>
                 {/* Profile */}
-                <Link to="/profile" className="text-gray-600 hover:text-blue-600 flex items-center gap-1 transition">
+                <NavLink to="/profile" className={({ isActive }) => `flex items-center gap-1 transition ${isActive ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1' : 'text-gray-600 hover:text-blue-600'}`}>
                   <User className="h-5 w-5" />
                   <span className="font-medium text-sm hidden sm:inline">Tài khoản</span>
-                </Link>
+                </NavLink>
                 {/* Logout */}
                 <button
                   onClick={logout}

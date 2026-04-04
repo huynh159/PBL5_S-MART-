@@ -27,9 +27,37 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.createReview(email, request));
     }
 
+    @PutMapping("/{reviewId}")
+    public ResponseEntity<Review> updateReview(Authentication authentication,
+                                               @PathVariable Integer reviewId,
+                                               @RequestBody ReviewRequest request) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(reviewService.updateReview(email, reviewId, request));
+    }
+
+    @GetMapping("/order-item/{orderItemId}")
+    public ResponseEntity<Review> getReviewByOrderItem(@PathVariable Integer orderItemId) {
+        Review review = reviewService.getReviewByOrderItemId(orderItemId);
+        if (review != null) {
+            return ResponseEntity.ok(review);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<List<Review>> getMyReviews(Authentication authentication) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(reviewService.getMyReviews(email));
+    }
+
     @GetMapping("/product/{productId}")
     public ResponseEntity<List<Review>> getReviewsForProduct(@PathVariable Integer productId) {
         return ResponseEntity.ok(reviewService.getReviewsForProduct(productId));
+    }
+
+    @PutMapping("/{reviewId}/like")
+    public ResponseEntity<Review> likeReview(@PathVariable Integer reviewId) {
+        return ResponseEntity.ok(reviewService.likeReview(reviewId));
     }
 
     @GetMapping("/product/{productId}/stats")
@@ -44,4 +72,3 @@ public class ReviewController {
         return ResponseEntity.ok(body);
     }
 }
-

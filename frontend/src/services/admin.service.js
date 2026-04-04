@@ -1,8 +1,10 @@
 import api from './api';
 
 const adminService = {
-  getStats: async () => {
-    const response = await api.get('/admin/stats');
+  getStats: async (year = null) => {
+    const response = await api.get('/admin/stats', {
+      params: { year }
+    });
     return response.data;
   },
 

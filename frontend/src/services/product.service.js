@@ -1,9 +1,13 @@
 import api from './api';
 
 const productService = {
-  getProducts: async (page = 0, size = 12, search = '') => {
+  getProducts: async (page = 0, size = 12, search = '', categoryId = null) => {
+    const params = { page, size };
+    if (search) params.search = search;
+    if (categoryId) params.categoryId = categoryId;
+
     const response = await api.get('/products', {
-      params: { page, size, search }
+      params
     });
     return response.data;
   },

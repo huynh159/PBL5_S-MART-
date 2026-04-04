@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Integer> {
 
@@ -15,5 +16,10 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
     Double getAverageRatingByProduct(@Param("productId") Integer productId);
 
     boolean existsByUserIdAndProductId(Integer userId, Integer productId);
-}
 
+    boolean existsByOrderItemId(Integer orderItemId);
+
+    Optional<Review> findByOrderItemId(Integer orderItemId);
+
+    List<Review> findByUserIdOrderByCreatedAtDesc(Integer userId);
+}

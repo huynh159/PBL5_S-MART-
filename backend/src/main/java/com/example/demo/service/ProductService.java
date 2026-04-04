@@ -23,11 +23,9 @@ public class ProductService {
     private final CartItemRepository cartItemRepository;
     private final OrderItemRepository orderItemRepository;
 
-    public Page<Product> getAllProducts(int page, int size, String search) {
-        if (search != null && !search.isEmpty()) {
-            return productRepository.findByNameContainingIgnoreCase(search, PageRequest.of(page, size));
-        }
-        return productRepository.findAll(PageRequest.of(page, size));
+    public Page<Product> getAllProducts(int page, int size, String search, Integer categoryId) {
+        String query = (search != null && search.trim().isEmpty()) ? null : search;
+        return productRepository.findProductsWithFilters(categoryId, query, PageRequest.of(page, size));
     }
 
     public Product getProductById(Integer id) {
@@ -50,7 +48,7 @@ public class ProductService {
     }
 
     public List<Product> getProductsByCategory(Integer categoryId) {
-        return productRepository.findByCategoryId(categoryId);
+        return productRepository.findByCategory_Id(categoryId);
     }
 
     public Product createProduct(ProductRequest request) {

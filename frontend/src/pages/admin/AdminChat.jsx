@@ -148,6 +148,42 @@ const AdminChat = () => {
     return new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const renderMessageContent = (text, isMe) => {
+    if (!text) return null;
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g;
+
+    if (!linkRegex.test(text)) {
+      return text;
+    }
+
+    const parts = [];
+    let lastIndex = 0;
+    linkRegex.lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      parts.push(
+        <a
+          key={match.index}
+          href={match[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`underline font-semibold ${isMe ? 'text-white hover:text-gray-200' : 'text-blue-600 hover:text-blue-800'}`}
+        >
+          {match[1]}
+        </a>
+      );
+      lastIndex = linkRegex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    return parts;
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6 antialiased text-gray-800">
       
@@ -234,7 +270,7 @@ const AdminChat = () => {
                         ? 'bg-blue-600 text-white rounded-br-md'
                         : 'bg-white text-gray-800 border border-gray-100 rounded-bl-md'
                     }`}>
-                      <p className="break-words">{msg.content}</p>
+                      <p className="break-words leading-relaxed">{renderMessageContent(msg.content, isMe)}</p>
                       <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
                         <span>{formatTime(msg.createdAt)}</span>
                         {isMe && (

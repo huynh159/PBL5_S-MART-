@@ -23,8 +23,9 @@ public class ProductController {
     public ResponseEntity<Page<Product>> getAllProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(productService.getAllProducts(page, size, search));
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer categoryId) {
+        return ResponseEntity.ok(productService.getAllProducts(page, size, search, categoryId));
     }
 
     // Legacy detail used by some parts of frontend
@@ -60,4 +61,3 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 }
-

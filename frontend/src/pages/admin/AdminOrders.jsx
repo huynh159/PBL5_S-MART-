@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FileText, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp, Search, User as UserIcon } from 'lucide-react';
 import api from '../../services/api';
 
 const STATUS_MAP = {
@@ -25,6 +25,7 @@ const AdminOrders = () => {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [filter, setFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchOrders = async () => {
     try {
@@ -54,18 +55,48 @@ const AdminOrders = () => {
     }
   };
 
-  const filtered = filter === 'ALL' ? orders : orders.filter(o => o.status === filter);
+  const filtered = orders.filter(o => {
+    const matchStatus = filter === 'ALL' || o.status === filter;
+    if (!matchStatus) return false;
+
+    if (!searchQuery) return true;
+
+    // Tìm kiếm theo ID đơn hàng, Số điện thoại, Email khách hoặc Địa chỉ
+    const query = searchQuery.toLowerCase();
+    const matchId = String(o.id).includes(query);
+    const matchPhone = o.phone && o.phone.toLowerCase().includes(query);
+    const matchEmail = o.user?.email && o.user.email.toLowerCase().includes(query);
+    const matchAddress = o.address && o.address.toLowerCase().includes(query);
+
+    return matchId || matchPhone || matchEmail || matchAddress;
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const getStatusInfo = (status) => STATUS_MAP[status?.toUpperCase()] || STATUS_MAP.PENDING;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <FileText className="w-7 h-7 text-blue-600" />
-        <h1 className="text-2xl font-bold text-gray-800">Quản Lý Đơn Hàng</h1>
-        <span className="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full font-medium">
-          {orders.length} đơn hàng
-        </span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <FileText className="w-7 h-7 text-blue-600" />
+          <h1 className="text-2xl font-bold text-gray-800">Quản Lý Đơn Hàng</h1>
+          <span className="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full font-medium">
+            {filtered.length} đơn hàng
+          </span>
+        </div>
+
+        {/* Thanh tìm kiếm */}
+        <div className="relative md:w-80">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-sm transition"
+            placeholder="Tìm mã đơn, SĐT, Email, Địa chỉ..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -104,40 +135,70 @@ const AdminOrders = () => {
           return (
             <div key={order.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               <div
-                className="flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50/70 transition"
+                className="flex flex-col md:flex-row md:items-center justify-between p-5 cursor-pointer hover:bg-gray-50/70 transition gap-4"
                 onClick={() => setExpandedId(isExpanded ? null : order.id)}
               >
                 <div className="flex items-center gap-4">
+                  <div className="flex-shrink-0 bg-blue-50 p-3 rounded-lg">
+                    <FileText className="w-6 h-6 text-blue-600" />
+                  </div>
                   <div>
-                    <p className="font-semibold text-gray-800">Đơn hàng #{order.id}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <h3 className="font-bold text-gray-900 text-lg">Đơn hàng #{order.id}</h3>
+                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
                       {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : '—'}
                     </p>
-                    {order.address && (
-                      <p className="text-xs text-gray-400 mt-0.5">📍 {order.address}</p>
-                    )}
+                    <div className="flex items-center gap-2 mt-1.5 text-sm">
+                       <UserIcon className="w-4 h-4 text-gray-400" />
+                       <span className="font-medium text-gray-700">{order.user?.email || 'Khách vãng lai'}</span>
+                       <span className="text-gray-300">|</span>
+                       <span className="text-gray-600">{order.phone || 'Chưa cập nhật SĐT'}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <span className="text-lg font-bold text-blue-600">
-                    {(order.total || order.totalAmount || 0).toLocaleString('vi-VN')} ₫
-                  </span>
-                  <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${colorClasses[statusInfo.color]}`}>
-                    <StatusIcon className="w-3.5 h-3.5" />
-                    {statusInfo.label}
-                  </span>
-                  {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                <div className="flex items-center gap-4 border-t md:border-t-0 pt-4 md:pt-0">
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500 mb-1">Tổng thanh toán</p>
+                    <span className="text-xl font-bold text-blue-600">
+                      {(order.total || order.totalAmount || 0).toLocaleString('vi-VN')} ₫
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${colorClasses[statusInfo.color]}`}>
+                      <StatusIcon className="w-3.5 h-3.5" />
+                      {statusInfo.label}
+                    </span>
+                    {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                  </div>
                 </div>
               </div>
 
               {isExpanded && (
                 <div className="border-t border-gray-100 p-5 bg-gray-50/50">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-                    <div><span className="text-gray-500">Phương thức:</span> <span className="font-medium">{order.paymentMethod || 'COD'}</span></div>
-                    <div><span className="text-gray-500">Điện thoại:</span> <span className="font-medium">{order.phone || '—'}</span></div>
-                    {order.couponId && <div><span className="text-gray-500">Coupon ID:</span> <span className="font-medium">#{order.couponId}</span></div>}
-                    {order.note && <div><span className="text-gray-500">Ghi chú:</span> <span className="font-medium">{order.note}</span></div>}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 text-sm">
+                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                      <p className="text-gray-500 mb-1 text-xs uppercase font-semibold">Khách hàng</p>
+                      <p className="font-medium text-gray-800">{order.user?.email || '—'}</p>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                      <p className="text-gray-500 mb-1 text-xs uppercase font-semibold">Liên hệ</p>
+                      <p className="font-medium text-gray-800">{order.phone || '—'}</p>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                      <p className="text-gray-500 mb-1 text-xs uppercase font-semibold">Giao hàng đến</p>
+                      <p className="font-medium text-gray-800">{order.address || '—'}</p>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                      <p className="text-gray-500 mb-1 text-xs uppercase font-semibold">Thanh toán</p>
+                      <p className="font-medium text-gray-800">{order.paymentMethod || 'COD'}</p>
+                    </div>
+                    {(order.couponId || order.note) && (
+                      <div className="lg:col-span-4 bg-yellow-50 p-3 rounded-lg border border-yellow-100 flex flex-wrap gap-6">
+                        {order.couponId && <div><span className="text-gray-500 font-medium">Mã giảm giá áp dụng:</span> <span className="font-bold text-yellow-700">#{order.couponId}</span></div>}
+                        {order.note && <div><span className="text-gray-500 font-medium">Ghi chú của khách:</span> <span className="italic text-gray-700">"{order.note}"</span></div>}
+                      </div>
+                    )}
                   </div>
 
                   {order.orderItems?.length > 0 && (

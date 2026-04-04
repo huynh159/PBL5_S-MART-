@@ -80,7 +80,7 @@ Các API quản lý tài nguyên của hệ thống (Yêu cầu Role: ADMIN).
 
 | Method | Endpoint | Chi Tiết / Chức Năng | Phân Quyền | Body / Tham Số |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/admin/stats` | Thống kê số lượng (Users, Products, Orders, Revenue). | ADMIN | N/A |
+| `GET` | `/api/admin/stats` | Lấy dữ liệu thống kê cho Admin (Tổng doanh thu các đơn đã giao, tổng đơn). | ADMIN | N/A |
 | `GET` | `/api/orders/admin` | Xem tất cả đơn hàng trên hệ thống. | ADMIN | N/A |
 | `PUT` | `/api/orders/admin/{id}/status`| Cập nhật trạng thái đơn (kèm theo auto push message realtime xuống client). | ADMIN | Query: `status` |
 | `GET` | `/api/admin/users` | Lấy danh sách toàn bộ khách hàng. | ADMIN | N/A |

@@ -31,21 +31,25 @@ const Home = () => {
     setSearch(urlSearch);
     setSearchInput(urlSearch);
     setCurrentPage(0);
-    if (urlSearch) setSelectedCategory(null);
   }, [urlSearch]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search !== searchInput) {
+        setSearch(searchInput);
+        setCurrentPage(0);
+      }
+    }, 500); // 500ms debounce
+    return () => clearTimeout(timer);
+  }, [searchInput, search]);
 
   // Load products
   useEffect(() => {
-    const fetch = async () => {
+    const fetchProducts = async () => {
       try {
         setLoading(true);
-        let data;
-        if (selectedCategory) {
-          const res = await productService.getProductsByCategory(selectedCategory);
-          data = { content: Array.isArray(res) ? res : [], totalPages: 1, totalElements: (Array.isArray(res) ? res : []).length };
-        } else {
-          data = await productService.getProducts(currentPage, PAGE_SIZE, search);
-        }
+        const data = await productService.getProducts(currentPage, PAGE_SIZE, search, selectedCategory);
         setProducts(data.content || data);
         setTotalPages(data.totalPages || 1);
         setTotalElements(data.totalElements || 0);
@@ -56,21 +60,18 @@ const Home = () => {
         setLoading(false);
       }
     };
-    fetch();
+    fetchProducts();
   }, [search, selectedCategory, currentPage]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setSearch(searchInput);
     setCurrentPage(0);
-    setSelectedCategory(null);
   };
 
   const handleCategoryClick = (catId) => {
     setSelectedCategory(catId === selectedCategory ? null : catId);
     setCurrentPage(0);
-    setSearch('');
-    setSearchInput('');
   };
 
   return (
@@ -82,7 +83,7 @@ const Home = () => {
           <h1 className="text-4xl font-extrabold mb-3 leading-tight">Mừng Xuân Đón Lộc!</h1>
           <p className="text-blue-100 text-lg mb-6">Giảm đến 50% cho tất cả dụng cụ thể thao. Nhanh tay săn deal hôm nay!</p>
           <button
-            onClick={() => { setSearch(''); setSearchInput(''); setSelectedCategory(null); }}
+            onClick={() => { setSearch(''); setSearchInput(''); setSelectedCategory(null); navigate('/'); }}
             className="bg-yellow-400 text-slate-800 font-bold px-7 py-3 rounded-full hover:bg-yellow-300 transition shadow-lg"
           >
             Mua Sắm Ngay 🛒
@@ -94,18 +95,23 @@ const Home = () => {
 
       {/* Search Bar */}
       <form onSubmit={handleSearch} className="mb-8">
-        <div className="relative max-w-2xl mx-auto">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            placeholder="Tìm kiếm sản phẩm thể thao..."
-            className="w-full pl-12 pr-32 py-3.5 border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-400 outline-none text-gray-700 bg-white"
-          />
-          <Search className="absolute left-4 top-4 h-5 w-5 text-gray-400" />
+        <div className="relative max-w-2xl mx-auto flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={e => {
+                setSearchInput(e.target.value);
+                // Tự động tìm kiếm sau khi gõ (debounce nhẹ)
+              }}
+              placeholder="Tìm kiếm sản phẩm thể thao..."
+              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-400 outline-none text-gray-700 bg-white"
+            />
+            <Search className="absolute left-4 top-4 h-5 w-5 text-gray-400" />
+          </div>
           <button
             type="submit"
-            className="absolute right-2 top-2 bottom-2 px-5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition"
+            className="px-6 py-3.5 bg-blue-600 text-white font-medium rounded-2xl hover:bg-blue-700 transition shadow-sm whitespace-nowrap"
           >
             Tìm kiếm
           </button>
@@ -140,7 +146,7 @@ const Home = () => {
       {/* Section Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">
-          {search ? `Kết quả cho "${search}"` : selectedCategory ? 'Sản phẩm theo danh mục' : 'Sản Phẩm Nổi Bật'}
+          {search ? `Kết quả cho "${search}"${selectedCategory ? ' trong danh mục này' : ''}` : selectedCategory ? 'Sản phẩm theo danh mục' : 'Sản Phẩm Nổi Bật'}
           {!loading && <span className="ml-2 text-base font-normal text-gray-400">({totalElements || products.length} sản phẩm)</span>}
         </h2>
       </div>
@@ -202,7 +208,7 @@ const Home = () => {
       )}
 
       {/* Pagination */}
-      {!loading && totalPages > 1 && !selectedCategory && (
+      {!loading && totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-10">
           <button
             onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
