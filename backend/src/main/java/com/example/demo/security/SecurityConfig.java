@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/categories/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/uploads/**").permitAll()
+                .requestMatchers("/api/chat/ai/ask").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
