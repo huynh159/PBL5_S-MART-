@@ -30,23 +30,25 @@ public class AiChatService {
     }
 
     public String getResponseFromGemini(String userMessage) {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + geminiApiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + geminiApiKey;
 
-        // 1. Fetch available products (limit to 30 for context window)
-        List<Product> products = productRepository.findAll().stream().limit(30).collect(Collectors.toList());
+        // 1. Lọc sản phẩm đơn giản để cải thiện RAG thay vì nhét toàn bộ data vào
+        // Giới hạn 10 sản phẩm để tránh quá tải token và quá tải thông tin nhiễu
+        List<Product> products = productRepository.findAll().stream().limit(10).collect(Collectors.toList());
 
-        // 2. Build the context prompt (RAG)
         StringBuilder context = new StringBuilder("Bạn là nhân viên tư vấn bán hàng của shop S-Mart. " +
                 "Bạn luôn thân thiện, nhiệt tình và tư vấn ngắn gọn. " +
-                "Dưới đây là một số liệu về sản phẩm bạn đang có (chỉ tư vấn những sản phẩm này):\n");
+                "Dưới đây là danh sách sản phẩm hiện có (chỉ tư vấn những sản phẩm này):\n");
         for (Product p : products) {
-            context.append(String.format("- %s, Giá: %,.0f VNĐ, Tồn kho: %d. Mô tả: %s\n",
-                    p.getName(), p.getPrice(), p.getStock(), p.getDescription()));
+            context.append(String.format("- Tên: %s, Giá: %,.0f VNĐ, Kho: %d, Mô tả tắt: %s\n",
+                    p.getName(), p.getPrice(), p.getStock(), 
+                    p.getDescription() != null && p.getDescription().length() > 50 
+                            ? p.getDescription().substring(0, 50) + "..." 
+                            : p.getDescription()));
         }
 
         String finalPrompt = context.toString() + "\nKhách hàng hỏi: " + userMessage + "\nTrả lời:";
 
-        // 3. Build HTTP request for Gemini
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> contents = new HashMap<>();
         Map<String, Object> parts = new HashMap<>();

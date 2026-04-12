@@ -66,6 +66,15 @@ const productService = {
     });
     return response.data;
   },
+
+  getSimilarProducts: async (id) => {
+    try {
+      const response = await api.get(`/public/products/${id}/recommend`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 };
 
 export default productService;

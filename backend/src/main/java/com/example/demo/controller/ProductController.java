@@ -4,7 +4,9 @@ import com.example.demo.dto.ProductDetailResponse;
 import com.example.demo.dto.ProductRequest;
 import com.example.demo.entity.Product;
 import com.example.demo.service.ProductService;
+import com.example.demo.service.ProductRecommendationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,12 +14,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping("/api/public/products")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class ProductController {
 
-    private final ProductService productService;
+    @Autowired
+    private ProductService productService;
+
+    @Autowired
+    private ProductRecommendationService productRecommendationService;
 
     @GetMapping
     public ResponseEntity<Page<Product>> getAllProducts(
@@ -59,5 +65,11 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(@PathVariable Integer id) {
         productService.deleteProduct(id);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/recommend")
+    public ResponseEntity<?> getSimilarProducts(@PathVariable Integer id) {
+        // Gắn API Recommendation (Top 4 sản phẩm) để giảng viên soi logic Thuật toán điểm thưởng (Weighted Algorithm)
+        return ResponseEntity.ok(productRecommendationService.getSimilarProducts(id, 4));
     }
 }

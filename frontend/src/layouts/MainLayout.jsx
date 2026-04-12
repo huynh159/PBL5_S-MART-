@@ -1,7 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import FloatingAiChat from '../components/FloatingAiChat';
 
 const MainLayout = () => {
   return (
@@ -13,11 +12,9 @@ const MainLayout = () => {
         <Outlet />
       </main>
 
-      <FloatingAiChat />
       <Footer />
     </div>
   );
 };
 
 export default MainLayout;
-

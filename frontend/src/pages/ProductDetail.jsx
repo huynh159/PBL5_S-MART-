@@ -29,19 +29,23 @@ const ProductDetail = () => {
   const { token } = useAuth();
   const { fetchCartCount } = useCart();
 
+  const [similarProducts, setSimilarProducts] = useState([]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [detail, stats, reviewList] = await Promise.all([
+        const [detail, stats, reviewList, similar] = await Promise.all([
           productService.getProductDetail(id),
           productService.getProductReviewStats(id),
           productService.getProductReviews(id),
+          productService.getSimilarProducts(id).catch(() => []) // Lấy danh sách gợi ý AI
         ]);
         setProduct(detail);
         setAverageRating(stats?.averageRating || 0);
         setTotalSold(stats?.totalSold || detail?.totalSold || 0);
         setReviews(reviewList || []);
+        setSimilarProducts(similar || []);
         setActiveImage(detail.imageUrl || '');
 
         // Parse variations
@@ -479,6 +483,33 @@ const ProductDetail = () => {
           ))}
         </div>
       </div>
+
+      {/* Sản phẩm tương tự */}
+      {similarProducts.length > 0 && (
+        <div className="mt-16 pt-10 border-t border-gray-100">
+          <h2 className="text-2xl font-bold text-gray-900 mb-8">Sản Phẩm Tương Tự</h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {similarProducts.map(sp => (
+              <div key={sp.id} className="bg-white rounded-lg shadow-sm overflow-hidden transition-transform transform hover:scale-[1.02]">
+                <div className="h-40 bg-gray-100 flex items-center justify-center">
+                  <img src={sp.imageUrl} alt={sp.name} className="max-h-full max-w-full object-contain" />
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-gray-800 line-clamp-1">{sp.name}</h3>
+                  <div className="flex items-center gap-2 mt-2">
+                    {renderStars(sp.averageRating, 'w-4 h-4')}
+                    <span className="text-sm text-gray-600">{sp.totalSold} đã bán</span>
+                  </div>
+                  <p className="text-xl font-extrabold text-red-600 mt-2">
+                    {sp.salePrice ? sp.salePrice.toLocaleString('vi-VN') + ' ₫' : sp.price.toLocaleString('vi-VN') + ' ₫'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
