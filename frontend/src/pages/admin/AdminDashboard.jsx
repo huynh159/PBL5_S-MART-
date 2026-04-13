@@ -45,7 +45,7 @@ const AdminDashboard = () => {
     ]).then(([{ Client }, SockJSModule]) => {
       const SockJS = SockJSModule.default || SockJSModule;
       const client = new Client({
-        webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+        webSocketFactory: () => new SockJS(`${import.meta.env.VITE_WS_URL || 'http://localhost:8080'}/ws`),
         onConnect: () => {
           setWsStatus('connected');
           client.subscribe('/topic/admin-notifications', (msg) => {

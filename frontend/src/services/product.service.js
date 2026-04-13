@@ -69,7 +69,7 @@ const productService = {
 
   getSimilarProducts: async (id) => {
     try {
-      const response = await api.get(`/public/products/${id}/recommend`);
+      const response = await api.get(`/products/${id}/recommend`);
       return response.data;
     } catch (error) {
       throw error;

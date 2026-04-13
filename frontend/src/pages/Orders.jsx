@@ -88,7 +88,7 @@ const Orders = () => {
           ]);
           const SockJS = SockJSModule.default || SockJSModule;
             const client = new Client({
-              webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+              webSocketFactory: () => new SockJS(`${import.meta.env.VITE_WS_URL || 'http://localhost:8080'}/ws`),
               debug: () => {},
               onConnect: () => {
                 client.subscribe(`/topic/user-${uid}`, (msg) => {

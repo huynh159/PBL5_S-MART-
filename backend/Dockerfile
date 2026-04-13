@@ -1,21 +1,27 @@
 # Stage 1: Build the application
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
 COPY pom.xml .
 COPY mvnw .
 COPY .mvn .mvn
-RUN chmod +x ./mvnw || true
+RUN chmod +x ./mvnw
 
-# Download dependencies
-RUN ./mvnw dependency:go-offline -B || sh ./mvnw dependency:go-offline -B
+# Download dependencies first (layer caching)
+RUN ./mvnw dependency:go-offline -B
 
 COPY src src
-RUN ./mvnw package -DskipTests || sh ./mvnw package -DskipTests
+RUN ./mvnw package -DskipTests
 
-# Stage 2: Run the application
-FROM eclipse-temurin:17-jre-alpine
+# Stage 2: Run the application (lightweight JRE image)
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
-ENTRYPOINT ["java", "-jar", "app.jar"]
+EXPOSE 8080
+# Tối ưu RAM cho free-tier cloud (512MB limit)
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "app.jar"]
 

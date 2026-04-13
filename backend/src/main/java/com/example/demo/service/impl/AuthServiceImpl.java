@@ -60,9 +60,9 @@ public class AuthServiceImpl implements AuthService {
                 .password(passwordEncoder.encode(request.getPassword())) 
                 .role("USER")
                 .isActive(true)
-                .isVerified(false) // Chưa xác thực OTP
+                .isVerified(false) // Quay lại trạng thái ban đầu: Cần OTP
                 .otpCode(otp)
-                .otpExpiry(LocalDateTime.now().plusMinutes(5)) // OTP có hạn 5 phút
+                .otpExpiry(LocalDateTime.now().plusMinutes(5)) 
                 .build();
 
         userRepository.save(user);
