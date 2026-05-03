@@ -1,70 +1,18 @@
 version: '3.8'
 
 services:
-
-  # ─── DATABASE ───────────────────────────────────────
-  mysql:
-    image: mysql:8
-    container_name: mysql_db
+  postgres:
+    image: postgres:15-alpine
+    container_name: sport_shop_postgres
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: sport_shop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: sport_shop
     ports:
-      - "3307:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql   # Data tồn tại dù restart
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/seed.sql # Tự động tạo Admin
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    networks:
-      - app-network
-
-  # ─── BACKEND ────────────────────────────────────────
-  backend:
-    build: ./backend
-    container_name: spring_app
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/sport_shop?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
-      # Thay các giá trị bên dưới bằng secrets thật của bạn
-      - JWT_SECRET=change-me-to-a-long-random-secret-key
-      - MAIL_USERNAME=nhanduc5435321@gmail.com
-      - MAIL_PASSWORD=mxfwsowdgvvjcfng
-      - VNP_RETURN_URL=http://localhost:8080/api/payment/vnpay-callback
-    depends_on:
-      mysql:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
-    networks:
-      - app-network
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-  # ─── FRONTEND ───────────────────────────────────────
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        - VITE_API_BASE_URL=http://localhost:8080/api
-        - VITE_WS_URL=http://localhost:8080
-    container_name: react_app
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    networks:
-      - app-network
-    restart: unless-stopped
-
-# ─── VOLUMES & NETWORKS ─────────────────────────────
 volumes:
-  mysql_data:
-
-networks:
-  app-network:
-    driver: bridge
+  postgres_data:

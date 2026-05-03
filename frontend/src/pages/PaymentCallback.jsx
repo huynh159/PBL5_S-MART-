@@ -11,7 +11,13 @@ const PaymentCallback = () => {
   useEffect(() => {
     const processPayment = async () => {
       try {
-        // Lấy tất cả query params VNPay đẩy về
+        const statusParam = searchParams.get('status');
+        if (statusParam) {
+          setStatus(statusParam.toUpperCase() === 'SUCCESS' ? 'success' : 'failed');
+          return;
+        }
+
+        // Fallback: nếu VNPay return thẳng về Frontend (dev flow)
         const responseCode = searchParams.get('vnp_ResponseCode');
 
         // Note: Ở hệ thống thật, Backend sẽ tự đón API này.

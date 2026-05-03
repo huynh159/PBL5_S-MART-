@@ -90,15 +90,16 @@ Các API quản lý tài nguyên của hệ thống (Yêu cầu Role: ADMIN).
 
 ## 7. Module Chat & Notifications (Real-time WebSockets)
 
-Sử dụng giao thức STOMP Server-to-Client.
+Sử dụng thư viện `socket.io` cho giao tiếp Server-to-Client thời gian thực.
 
-| Method / Type | Endpoint / Topic | Chi Tiết / Chức Năng | Phân Quyền | Dữ Liệu |
+| Method / Event | Tên Sự Kiện | Chi Tiết / Chức Năng | Phân Quyền | Dữ Liệu |
 | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/api/chat/send` | Gửi tin nhắn đến một User/Admin. | USER/ADMIN | `{ receiverId, content }` |
+| `POST` | `/api/chat/send` | Gửi tin nhắn đến một User/Admin thông qua REST API. | USER/ADMIN | `{ receiverId, content }` |
 | `GET` | `/api/chat/history/{id}` | Tải toàn bộ nội dung Chat Box. | USER/ADMIN | Path: `receiverId` |
 | `GET` | `/api/notifications` | Tải lịch sử thông báo. | USER/ADMIN | N/A |
 | `PUT` | `/api/notifications/{id}/read`| Đánh dấu đã đọc thông báo. | USER/ADMIN | Path: `id` |
-| `WS` | `/ws` | Cổng khai báo SocketJS Connection. | USER/ADMIN | STOMP frames |
-| `SUBSCRIBE`| `/topic/user-{id}` | Kênh user lắng nghe để nhận thông báo đơn hàng. | USER | JSON Body (`content`, `link`) |
-| `SUBSCRIBE`| `/topic/admin-notifications`| Kênh admin lắng nghe đơn hàng mới/bị hủy. | ADMIN | JSON Body (`content`, `link`) |
+| `EMIT` | `register` | Khởi tạo connection và gán userId vào session Socket. | USER/ADMIN | `userId` |
+| `EMIT` | `sendMessage` | Client gửi tin nhắn trực tiếp qua Socket. | USER/ADMIN | `{ receiverId, content, senderId }` |
+| `ON`   | `receiveMessage` | Kênh user lắng nghe để nhận tin nhắn mới. | USER/ADMIN | JSON Body (Message) |
+| `ON`   | `notification` | Kênh lắng nghe các sự kiện đơn hàng/cập nhật hệ thống. | USER/ADMIN | JSON Body (`content`, `link`) |
 

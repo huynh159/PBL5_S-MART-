@@ -1,0 +1,176 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const PrismaClient_1 = require("../../infrastructure/persistence/PrismaClient");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const socketService_1 = require("../../infrastructure/socket/socketService");
+const router = (0, express_1.Router)();
+// GET /api/admin/stats?year=2026
+router.get('/stats', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
+    try {
+        const year = parseInt(req.query['year']) || new Date().getFullYear();
+        const [totalRevenue, totalOrders, totalProducts, totalUsers, orderStatusStats, monthlyData, yearsRaw] = await Promise.all([
+            PrismaClient_1.prisma.order.aggregate({ _sum: { total: true }, where: { status: 'DELIVERED' } }),
+            PrismaClient_1.prisma.order.count(),
+            PrismaClient_1.prisma.product.count(),
+            PrismaClient_1.prisma.user.count(),
+            PrismaClient_1.prisma.order.groupBy({
+                by: ['status'],
+                _count: { id: true }
+            }),
+            PrismaClient_1.prisma.$queryRaw `
+                SELECT EXTRACT(MONTH FROM created_at) as month, SUM(total) as revenue
+                FROM orders 
+                WHERE EXTRACT(YEAR FROM created_at) = ${year} AND status = 'DELIVERED'
+                GROUP BY EXTRACT(MONTH FROM created_at)
+                ORDER BY month ASC
+            `,
+            PrismaClient_1.prisma.$queryRaw `SELECT DISTINCT EXTRACT(YEAR FROM created_at) as year FROM orders ORDER BY year DESC`
+        ]);
+        // Format monthly revenue for recharts
+        const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
+        const revenueByMonth = months.map((m, i) => {
+            const found = monthlyData.find(d => Number(d.month) === (i + 1));
+            return { month: m, revenue: found ? Number(found.revenue) : 0 };
+        });
+        res.json({
+            totalRevenue: totalRevenue._sum.total || 0,
+            totalOrders,
+            totalProducts,
+            totalUsers,
+            orderStatusStats: orderStatusStats.map(s => ({ name: s.status, value: s._count.id })),
+            revenueByMonth,
+            availableYears: yearsRaw.map(y => Number(y.year)),
+            selectedYear: year
+        });
+    }
+    catch (e) {
+        console.error('Stats Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+// GET /api/admin/users
+router.get('/users', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (_req, res) => {
+    try {
+        const users = await PrismaClient_1.prisma.user.findMany({
+            select: { id: true, email: true, role: true, status: true, isVerified: true, createdAt: true },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(users);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// PUT /api/admin/users/:id/toggle-lock
+router.put('/users/:id/toggle-lock', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const user = await PrismaClient_1.prisma.user.findUnique({ where: { id } });
+        if (!user) {
+            res.status(404).json({ error: 'User không tồn tại' });
+            return;
+        }
+        const updated = await PrismaClient_1.prisma.user.update({ where: { id }, data: { status: user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE' } });
+        res.json(updated);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// GET /api/admin/orders
+router.get('/orders', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (_req, res) => {
+    try {
+        const orders = await PrismaClient_1.prisma.order.findMany({
+            include: { user: { select: { id: true, email: true } }, orderItems: { include: { product: true } }, coupon: true },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(orders);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// PUT /api/admin/orders/:id/status  (cập nhật trạng thái đơn hàng - State Machine)
+router.put('/orders/:id/status', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { status } = req.body;
+        const VALID_TRANSITIONS = {
+            PENDING: ['CONFIRMED', 'CANCELLED'],
+            CONFIRMED: ['SHIPPING', 'CANCELLED'],
+            SHIPPING: ['DELIVERED'],
+            DELIVERED: [], CANCELLED: []
+        };
+        const order = await PrismaClient_1.prisma.order.findUnique({ where: { id } });
+        if (!order) {
+            res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+            return;
+        }
+        if (!VALID_TRANSITIONS[order.status]?.includes(status)) {
+            res.status(400).json({ error: `Không thể chuyển từ ${order.status} sang ${status}` });
+            return;
+        }
+        const updated = await PrismaClient_1.prisma.order.update({ where: { id }, data: { status } });
+        // Gửi thông báo cho user (Tạo record DB để người dùng xem lại ở chuông thông báo)
+        let message = `Đơn hàng #${id} đã được cập nhật trạng thái mới.`;
+        if (status === 'CONFIRMED')
+            message = `Đơn hàng #${id} của bạn đang được chuẩn bị.`;
+        else if (status === 'SHIPPING')
+            message = `Đơn hàng #${id} của bạn đang được giao.`;
+        else if (status === 'DELIVERED')
+            message = `Đơn hàng #${id} của bạn đã giao thành công.`;
+        else if (status === 'CANCELLED')
+            message = `Đơn hàng #${id} của bạn đã bị hủy.`;
+        const newNotif = await PrismaClient_1.prisma.notification.create({
+            data: {
+                userId: order.userId,
+                content: message,
+                link: '/orders'
+            }
+        });
+        // Gửi qua room thay vì check SocketId cụ thể để hỗ trợ đa kết nối (nhiều tab)
+        (0, socketService_1.getIO)().to(`user_${order.userId}`).emit('receiveNotification', newNotif);
+        res.json(updated);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// GET /api/admin/coupons
+router.get('/coupons', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (_req, res) => {
+    try {
+        res.json(await PrismaClient_1.prisma.coupon.findMany({ orderBy: { id: 'desc' } }));
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// POST /api/admin/coupons
+router.post('/coupons', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
+    try {
+        const coupon = await PrismaClient_1.prisma.coupon.create({ data: req.body });
+        res.status(201).json(coupon);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// PUT /api/admin/coupons/:id/toggle
+router.put('/coupons/:id/toggle', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const coupon = await PrismaClient_1.prisma.coupon.findUnique({ where: { id } });
+        if (!coupon) {
+            res.status(404).json({ error: 'Không tìm thấy coupon' });
+            return;
+        }
+        const updated = await PrismaClient_1.prisma.coupon.update({ where: { id }, data: { isActive: !coupon.isActive } });
+        res.json(updated);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+exports.default = router;
+//# sourceMappingURL=admin.routes.js.map

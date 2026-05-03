@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FileText, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp, Search, User as UserIcon } from 'lucide-react';
 import api from '../../services/api';
+import { io } from 'socket.io-client';
 
 const STATUS_MAP = {
   PENDING:   { label: 'Chờ xác nhận',    color: 'yellow', icon: Clock },
-  PROCESSING:{ label: 'Đang chuẩn bị',   color: 'blue',   icon: Clock },
-  SHIPPED:   { label: 'Đang giao',       color: 'purple', icon: Clock },
+  CONFIRMED: { label: 'Đang chuẩn bị',   color: 'blue',   icon: Clock },
+  SHIPPING:  { label: 'Đang giao',       color: 'purple', icon: Clock },
   DELIVERED: { label: 'Đã giao',         color: 'green',  icon: CheckCircle },
-  COMPLETED: { label: 'Hoàn thành',      color: 'green',  icon: CheckCircle },
   CANCELLED: { label: 'Đã hủy',          color: 'red',    icon: XCircle },
 };
 
@@ -29,8 +29,7 @@ const AdminOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      // Changed endpoint from '/admin/orders' to '/orders/admin' to match backend
-      const res = await api.get('/orders/admin');
+      const res = await api.get('/admin/orders');
       setOrders(res.data);
     } catch (err) {
       toast.error('Lỗi tải danh sách đơn hàng');
@@ -42,11 +41,17 @@ const AdminOrders = () => {
 
   useEffect(() => {
     fetchOrders();
+
+    const socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:8080');
+    socket.on('adminNotification', (msg) => {
+      fetchOrders();
+    });
+    return () => { socket.disconnect(); };
   }, []);
 
   const handleUpdateStatus = async (id, newStatus) => {
     try {
-      await api.put(`/orders/admin/${id}/status?status=${newStatus}`);
+      await api.put(`/admin/orders/${id}/status`, { status: newStatus });
       toast.success('Cập nhật trạng thái thành công!');
       fetchOrders(); // Refresh the list
     } catch (err) {
@@ -56,7 +61,8 @@ const AdminOrders = () => {
   };
 
   const filtered = orders.filter(o => {
-    const matchStatus = filter === 'ALL' || o.status === filter;
+    const statusUpper = o.status ? o.status.toUpperCase() : '';
+    const matchStatus = filter === 'ALL' || statusUpper === filter;
     if (!matchStatus) return false;
 
     if (!searchQuery) return true;
@@ -101,7 +107,7 @@ const AdminOrders = () => {
 
       {/* Filter Tabs */}
       <div className="flex gap-2 flex-wrap">
-        {['ALL', 'PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].map(s => (
+        {['ALL', 'PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'].map(s => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -114,7 +120,7 @@ const AdminOrders = () => {
             {s === 'ALL' ? 'Tất cả' : (STATUS_MAP[s]?.label || s)}
             {s !== 'ALL' && (
               <span className="ml-1.5 text-xs opacity-75">
-                ({orders.filter(o => o.status === s).length})
+                ({orders.filter(o => (o.status && o.status.toUpperCase()) === s).length})
               </span>
             )}
           </button>
@@ -227,17 +233,17 @@ const AdminOrders = () => {
 
                   {/* Actions for Admin Workflow */}
                   <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
-                    {(order.status === 'PENDING' || order.status === 'PAID') && (
+                    {(order.status?.toUpperCase() === 'PENDING') && (
                       <>
-                        <button onClick={() => handleUpdateStatus(order.id, 'PROCESSING')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Chuẩn bị hàng</button>
+                        <button onClick={() => handleUpdateStatus(order.id, 'CONFIRMED')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Xác nhận đơn (Confirmed)</button>
                         <button onClick={() => handleUpdateStatus(order.id, 'CANCELLED')} className="px-4 py-2 border border-red-500 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium">Hủy đơn</button>
                       </>
                     )}
-                    {order.status === 'PROCESSING' && (
-                      <button onClick={() => handleUpdateStatus(order.id, 'SHIPPED')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium">Giao hàng (Shipped)</button>
+                    {order.status?.toUpperCase() === 'CONFIRMED' && (
+                      <button onClick={() => handleUpdateStatus(order.id, 'SHIPPING')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium">Giao hàng (Shipping)</button>
                     )}
-                    {order.status === 'SHIPPED' && (
-                      <button onClick={() => handleUpdateStatus(order.id, 'DELIVERED')} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">Xác nhận Đã giao</button>
+                    {order.status?.toUpperCase() === 'SHIPPING' && (
+                      <button onClick={() => handleUpdateStatus(order.id, 'DELIVERED')} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">Xác nhận đã giao (Delivered)</button>
                     )}
                   </div>
                 </div>

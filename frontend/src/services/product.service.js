@@ -1,12 +1,13 @@
 import api from './api';
 
 const productService = {
-  getProducts: async (page = 0, size = 12, search = '', categoryId = null) => {
+  getProducts: async (page = 0, size = 12, search = '', categoryId = null, includeHidden = false) => {
     const params = { page, size };
     if (search) params.search = search;
     if (categoryId) params.categoryId = categoryId;
+    if (includeHidden) params.includeHidden = true;
 
-    const response = await api.get('/products', {
+    const response = await api.get(includeHidden ? '/products/admin/all' : '/products', {
       params
     });
     return response.data;
@@ -68,12 +69,8 @@ const productService = {
   },
 
   getSimilarProducts: async (id) => {
-    try {
-      const response = await api.get(`/products/${id}/recommend`);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`/products/${id}/recommend`);
+    return response.data;
   }
 };
 

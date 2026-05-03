@@ -30,7 +30,7 @@ const AdminProducts = () => {
     try {
       setLoading(true);
       const [prodData, catData] = await Promise.all([
-          productService.getProducts(0, 500, search),
+          productService.getProducts(0, 500, search, null, true),
           productService.getCategories()
       ]);
       setProducts(prodData.content || prodData);
@@ -140,7 +140,6 @@ const AdminProducts = () => {
           stock: totalStock,
           categoryId: parseInt(form.categoryId)
       };
-
       if (editProduct) {
         await productService.updateProduct(editProduct.id, payload);
         toast.success('Cập nhật sản phẩm thành công!');

@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { io } from 'socket.io-client';
+import { jwtDecode } from 'jwt-decode';
+import { toast } from 'react-toastify';
 
 const NotificationDropdown = ({ token }) => {
   const [notifications, setNotifications] = useState([]);
@@ -12,8 +15,40 @@ const NotificationDropdown = ({ token }) => {
   useEffect(() => {
     if (token) {
       fetchNotifications();
+
+      const socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:8080');
+      try {
+        const decoded = jwtDecode(token);
+        const uid = decoded.userId || decoded.id || decoded.sub;
+        if (uid) {
+          socket.on('connect', () => socket.emit('register', uid));
+          socket.on('receiveNotification', (newNotif) => {
+             const notifObj = typeof newNotif === 'string' ? { id: Date.now(), content: newNotif, isRead: false, createdAt: new Date() } : newNotif;
+
+             toast.info(
+               <div>
+                 <p className="font-bold">Thông báo</p>
+                 <p className="text-sm">{notifObj.content}</p>
+                 {notifObj.link && <p className="text-xs text-blue-500 mt-1">Nhấn để xem</p>}
+               </div>,
+               { onClick: () => { if (notifObj.link) navigate(notifObj.link); } }
+             );
+
+             setNotifications((prev) => [notifObj, ...prev]);
+          });
+
+          socket.on('forceLogout', (msg) => {
+            toast.error(msg?.message || 'Tài khoản của bạn đã bị khóa bởi Admin!');
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            window.location.href = '/login';
+          });
+        }
+      } catch (e) {}
+
+      return () => { socket.disconnect(); };
     }
-  }, [token]);
+  }, [token, navigate]);
 
   useEffect(() => {
     // click outside to close

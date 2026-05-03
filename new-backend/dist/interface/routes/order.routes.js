@@ -1,0 +1,253 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const PrismaClient_1 = require("../../infrastructure/persistence/PrismaClient");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const socketService_1 = require("../../infrastructure/socket/socketService");
+const router = (0, express_1.Router)();
+// GET /api/orders  (lịch sử đơn hàng của user)
+router.get('/', auth_middleware_1.authMiddleware, async (req, res) => {
+    try {
+        const orders = await PrismaClient_1.prisma.order.findMany({
+            where: { userId: req.user.userId },
+            include: { orderItems: { include: { product: true } }, coupon: true },
+            orderBy: { createdAt: 'desc' }
+        });
+        // Add alias orderDetails for frontend compatibility
+        const ordersWithDetails = orders.map(o => ({
+            ...o,
+            orderDetails: o.orderItems
+        }));
+        res.json(ordersWithDetails);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// PUT /api/orders/:id/cancel (hủy đơn hàng của user)
+router.put('/:id/cancel', auth_middleware_1.authMiddleware, async (req, res) => {
+    try {
+        const orderId = parseInt(String(req.params.id));
+        if (Number.isNaN(orderId)) {
+            res.status(400).json({ message: 'orderId không hợp lệ' });
+            return;
+        }
+        const order = await PrismaClient_1.prisma.order.findUnique({
+            where: { id: orderId },
+            include: { orderItems: true }
+        });
+        if (!order) {
+            res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+            return;
+        }
+        if (order.userId !== req.user.userId) {
+            res.status(403).json({ message: 'Không có quyền thao tác đơn hàng này' });
+            return;
+        }
+        const status = String(order.status).toUpperCase();
+        if (!['PENDING', 'CONFIRMED'].includes(status)) {
+            res.status(400).json({ message: 'Không thể hủy đơn hàng ở trạng thái hiện tại' });
+            return;
+        }
+        const updated = await PrismaClient_1.prisma.$transaction(async (tx) => {
+            // Hoàn kho
+            for (const item of order.orderItems) {
+                const product = await tx.product.findUnique({ where: { id: item.productId } });
+                if (!product)
+                    continue;
+                let updatedVariations = product.variations;
+                if (product.variations && (item.color || item.size)) {
+                    try {
+                        const vars = JSON.parse(product.variations);
+                        const varIndex = vars.findIndex((v) => v.color === item.color && v.size === item.size);
+                        if (varIndex !== -1) {
+                            vars[varIndex].stock = (vars[varIndex].stock || 0) + item.quantity;
+                            updatedVariations = JSON.stringify(vars);
+                        }
+                    }
+                    catch {
+                        // ignore invalid variations json
+                    }
+                }
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: {
+                        stock: product.stock + item.quantity,
+                        variations: updatedVariations
+                    }
+                });
+            }
+            // Cập nhật trạng thái đơn hàng
+            return await tx.order.update({
+                where: { id: orderId },
+                data: { status: 'CANCELLED' },
+                include: { orderItems: { include: { product: true } }, coupon: true }
+            });
+        });
+        const newNotif = await PrismaClient_1.prisma.notification.create({
+            data: {
+                userId: req.user.userId,
+                content: `Đơn hàng #${updated.id} đã được hủy thành công.`,
+                link: '/orders'
+            }
+        });
+        (0, socketService_1.getIO)().to(`user_${req.user.userId}`).emit('receiveNotification', newNotif);
+        res.json(updated);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// POST /api/orders  (tạo đơn hàng từ giỏ hàng)
+router.post('/', auth_middleware_1.authMiddleware, async (req, res) => {
+    try {
+        const { items, cartItemIds, directItems, address, phone, note, paymentMethod, couponCode, total } = req.body;
+        if (!address || !phone) {
+            res.status(400).json({ message: 'Thiếu thông tin giao hàng' });
+            return;
+        }
+        let orderItemsInput = [];
+        if (Array.isArray(items) && items.length > 0) {
+            orderItemsInput = items;
+        }
+        else if (Array.isArray(directItems) && directItems.length > 0) {
+            orderItemsInput = directItems.map((item) => ({
+                productId: Number(item.productId),
+                quantity: Number(item.quantity) || 1,
+                color: item.color || null,
+                size: item.size || null,
+                price: item.price ? Number(item.price) : undefined
+            }));
+        }
+        else if (Array.isArray(cartItemIds) && cartItemIds.length > 0) {
+            const selectedCartItems = await PrismaClient_1.prisma.cartItem.findMany({
+                where: {
+                    userId: req.user.userId,
+                    id: { in: cartItemIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)) }
+                }
+            });
+            if (selectedCartItems.length === 0) {
+                res.status(400).json({ message: 'Không tìm thấy sản phẩm trong giỏ hàng để thanh toán' });
+                return;
+            }
+            orderItemsInput = selectedCartItems.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                color: item.color || null,
+                size: item.size || null,
+                price: item.price
+            }));
+        }
+        if (orderItemsInput.length === 0) {
+            res.status(400).json({ message: 'Đơn hàng không có sản phẩm' });
+            return;
+        }
+        let couponId = null;
+        let couponDiscountPercent = 0;
+        if (couponCode) {
+            const coupon = await PrismaClient_1.prisma.coupon.findUnique({ where: { code: couponCode } });
+            if (coupon?.isActive && coupon.expiryDate >= new Date()) {
+                couponId = coupon.id;
+                couponDiscountPercent = coupon.discountPercent;
+            }
+        }
+        // Tạo Order kèm OrderItems (Prisma transaction)
+        const order = await PrismaClient_1.prisma.$transaction(async (tx) => {
+            let subtotal = 0;
+            const resolvedItems = [];
+            for (const item of orderItemsInput) {
+                const product = await tx.product.findUnique({ where: { id: item.productId } });
+                if (!product)
+                    throw new Error(`Sản phẩm #${item.productId} không tồn tại`);
+                const unitPrice = item.price && item.price > 0 ? Number(item.price) : (product.salePrice ?? product.price);
+                subtotal += unitPrice * item.quantity;
+                resolvedItems.push({
+                    productId: item.productId,
+                    quantity: item.quantity,
+                    color: item.color || null,
+                    size: item.size || null,
+                    price: unitPrice
+                });
+            }
+            const computedTotal = Math.max(0, subtotal - Math.round(subtotal * couponDiscountPercent / 100));
+            const finalTotal = typeof total === 'number' && total > 0 ? total : computedTotal;
+            const newOrder = await tx.order.create({
+                data: {
+                    userId: req.user.userId,
+                    total: finalTotal,
+                    address,
+                    phone,
+                    note,
+                    paymentMethod: paymentMethod || 'COD',
+                    status: 'PENDING',
+                    couponId
+                }
+            });
+            for (const item of resolvedItems) {
+                // Deduct stock
+                const product = await tx.product.findUnique({ where: { id: item.productId } });
+                if (!product)
+                    throw new Error(`Sản phẩm #${item.productId} không tồn tại`);
+                let updatedVariations = product.variations;
+                if (product.variations) {
+                    const vars = JSON.parse(product.variations);
+                    const varIndex = vars.findIndex((v) => v.color === item.color && v.size === item.size);
+                    if (varIndex !== -1) {
+                        if (vars[varIndex].stock < item.quantity)
+                            throw new Error(`Biến thể sản phẩm ${product.name} đã hết hàng`);
+                        vars[varIndex].stock -= item.quantity;
+                        updatedVariations = JSON.stringify(vars);
+                    }
+                }
+                if (product.stock < item.quantity)
+                    throw new Error(`Sản phẩm ${product.name} đã hết hàng`);
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: {
+                        stock: product.stock - item.quantity,
+                        variations: updatedVariations
+                    }
+                });
+                await tx.orderItem.create({
+                    data: {
+                        orderId: newOrder.id,
+                        productId: item.productId,
+                        quantity: item.quantity,
+                        color: item.color,
+                        size: item.size,
+                        price: item.price
+                    }
+                });
+            }
+            // Nếu checkout từ giỏ hàng -> chỉ xóa item được chọn
+            if (Array.isArray(cartItemIds) && cartItemIds.length > 0) {
+                await tx.cartItem.deleteMany({
+                    where: {
+                        userId: req.user.userId,
+                        id: { in: cartItemIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)) }
+                    }
+                });
+            }
+            return newOrder;
+        });
+        const newNotif = await PrismaClient_1.prisma.notification.create({
+            data: {
+                userId: req.user.userId,
+                content: `Đơn hàng #${order.id} đã được đặt thành công! Cảm ơn bạn.`,
+                link: '/orders'
+            }
+        });
+        // Gửi thông báo real-time qua room để hỗ trợ đa luồng
+        (0, socketService_1.getIO)().to(`user_${req.user.userId}`).emit('receiveNotification', newNotif);
+        (0, socketService_1.getIO)().emit('adminNotification', { content: `Đơn hàng mới #${order.id} vừa được đặt!` });
+        res.status(201).json(order);
+    }
+    catch (e) {
+        console.error("Create Order Error:", e);
+        res.status(500).json({ error: e.message, message: 'Lỗi tạo đơn hàng: ' + e.message });
+    }
+});
+// GET /api/coupons/apply/:code  (áp dụng mã giảm giá)
+// Đặt ở đây vì frontend gọi qua order flow
+exports.default = router;
+//# sourceMappingURL=order.routes.js.map

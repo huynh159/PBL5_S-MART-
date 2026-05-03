@@ -24,8 +24,120 @@ const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [wards, setWards] = useState([]);
+
+  const [selectedProvince, setSelectedProvince] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [selectedWard, setSelectedWard] = useState('');
+  const [street, setStreet] = useState('');
+
+  const [shippingFee, setShippingFee] = useState(0);
+  const [feeLoading, setFeeLoading] = useState(false);
+
   const selectedItemIds = location.state?.selectedItems || [];
   const directItems = location.state?.directItems || [];
+
+  useEffect(() => {
+    // Load provinces
+    fetch('https://provinces.open-api.vn/api/?depth=3')
+      .then(res => res.json())
+      .then(data => setProvinces(data))
+      .catch(() => toast.error('Không thể tải dữ liệu địa chỉ'));
+  }, []);
+
+  useEffect(() => {
+    if(selectedProvince) {
+      const prov = provinces.find(p => p.name === selectedProvince);
+      if(prov) setDistricts(prov.districts);
+      setWards([]);
+      setSelectedDistrict('');
+      setSelectedWard('');
+    } else {
+      setDistricts([]);
+      setShippingFee(0);
+    }
+  }, [selectedProvince, provinces]);
+
+  useEffect(() => {
+    if(selectedDistrict) {
+      const dist = districts.find(d => d.name === selectedDistrict);
+      if(dist) setWards(dist.wards);
+      setSelectedWard('');
+    } else {
+      setWards([]);
+    }
+  }, [selectedDistrict, districts]);
+
+  // Real-time Shipping Fee Calculation via Backend API
+  useEffect(() => {
+    if (selectedProvince && selectedDistrict && selectedWard) {
+      const fetchFee = async () => {
+        setFeeLoading(true);
+        try {
+          // Thêm token thủ công vì api config có thể cần token
+          const tokenStr = localStorage.getItem('token');
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/orders/calculate-fee`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokenStr}`
+            },
+            body: JSON.stringify({
+              province: selectedProvince,
+              district: selectedDistrict,
+              ward: selectedWard,
+              street: street
+            })
+          });
+          const data = await res.json();
+          if (data.shippingFee !== undefined) {
+             setShippingFee(data.shippingFee);
+          }
+        } catch (error) {
+          console.error("Lỗi tính phí ship:", error);
+          // Fallback ở frontend nếu gọi API xịt
+          setShippingFee(40000);
+        } finally {
+          setFeeLoading(false);
+        }
+      };
+
+      const timeoutId = setTimeout(() => {
+        fetchFee();
+      }, 600); // debounce 600ms
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedProvince, selectedDistrict, selectedWard, street]);
+
+  useEffect(() => {
+    const fullAdr = [street, selectedWard, selectedDistrict, selectedProvince].filter(Boolean).join(', ');
+    setAddress(fullAdr);
+  }, [street, selectedWard, selectedDistrict, selectedProvince]);
+
+  useEffect(() => {
+    const savedInfo = localStorage.getItem('lastAddressInfo');
+    if (savedInfo) {
+      try {
+        const parsed = JSON.parse(savedInfo);
+        if (parsed.phone) setPhone(parsed.phone);
+        if (parsed.province) {
+          setSelectedProvince(parsed.province);
+          // District & Ward will be set after provinces/districts load,
+          // but state updates are tricky if districts aren't loaded yet.
+          // To ensure they are set when options are available, we handle it indirectly
+          // or just load the values in a separate Timeout/effect.
+          setTimeout(() => {
+            if (parsed.district) setSelectedDistrict(parsed.district);
+            if (parsed.ward) setTimeout(() => setSelectedWard(parsed.ward), 100);
+          }, 500);
+        }
+        if (parsed.street) setStreet(parsed.street);
+      } catch (e) {}
+    }
+  }, [provinces]);
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
@@ -63,7 +175,7 @@ const Checkout = () => {
   const itemsToCalculate = directItemsToBuy.length > 0 ? directItemsToBuy : cartItems;
   const subtotal = itemsToCalculate.reduce((s, item) => s + (item.price || item.product?.price || 0) * item.quantity, 0);
   const discount = couponDiscount ? Math.round(subtotal * couponDiscount / 100) : 0;
-  const total = subtotal - discount;
+  const totalAmount = subtotal + shippingFee - discount;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) { toast.warning('Vui lòng nhập mã giảm giá!'); return; }
@@ -80,33 +192,34 @@ const Checkout = () => {
     }
   };
 
-  const handleCheckout = async (e) => {
-    e.preventDefault();
-    if (!address.trim() || !phone.trim()) {
-      toast.warning('Vui lòng nhập đầy đủ thông tin giao hàng!');
-      return;
-    }
-    if (cartItems.length === 0 && directItemsToBuy.length === 0) {
-      toast.warning('Giỏ hàng đang trống!');
+  const handleCheckout = async () => {
+    if (!phone || !street || !selectedWard || !selectedDistrict || !selectedProvince) {
+      toast.error('Vui lòng điền đầy đủ số điện thoại và địa chỉ giao hàng!');
       return;
     }
 
-    setLoading(true);
     try {
-      // Step 1: Tạo đơn hàng
+      setLoading(true);
       const payload = {
-        paymentMethod,
-        couponCode: couponCode.trim() || null,
         address,
         phone,
         note,
+        paymentMethod,
+        couponCode: couponDiscount !== null ? couponCode : undefined,
+        total: totalAmount,
+        shippingFee // Send shipping fee to backend
       };
 
       if (directItemsToBuy.length > 0) {
           payload.directItems = directItemsToBuy;
       } else {
-          payload.cartItemIds = selectedItemIds;
+          payload.cartItemIds = selectedItemIds.map(id => Number(id));
       }
+
+      // Lưu lại thông tin địa chỉ để gợi ý cho lần sau
+      localStorage.setItem('lastAddressInfo', JSON.stringify({
+        phone, province: selectedProvince, district: selectedDistrict, ward: selectedWard, street
+      }));
 
       const order = await orderService.createOrder(payload);
 
@@ -153,28 +266,71 @@ const Checkout = () => {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ giao hàng *</label>
-                <textarea
-                  value={address}
-                  onChange={e => setAddress(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none"
-                  rows="3"
-                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
-                  required
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố *</label>
+                    <select
+                      value={selectedProvince}
+                      onChange={e => setSelectedProvince(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none bg-white"
+                      required
+                    >
+                      <option value="">-- Chọn --</option>
+                      {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện *</label>
+                    <select
+                      value={selectedDistrict}
+                      onChange={e => setSelectedDistrict(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none bg-white"
+                      required
+                      disabled={!selectedProvince}
+                    >
+                      <option value="">-- Chọn --</option>
+                      {districts.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phường/Xã *</label>
+                    <select
+                      value={selectedWard}
+                      onChange={e => setSelectedWard(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none bg-white"
+                      required
+                      disabled={!selectedDistrict}
+                    >
+                      <option value="">-- Chọn --</option>
+                      {wards.map(w => <option key={w.code} value={w.name}>{w.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số nhà, tên đường *</label>
+                  <input
+                    type="text"
+                    value={street}
+                    onChange={e => setStreet(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none"
+                    placeholder="VD: Số 1 ngõ 2, đường ABC..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú cho shipper (Tùy chọn)</label>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none"
+                    placeholder="VD: Gọi trước khi giao, giao buổi chiều..."
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú cho shipper (Tùy chọn)</label>
-                <input
-                  type="text"
-                  value={note}
-                  onChange={e => setNote(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none"
-                  placeholder="VD: Gọi trước khi giao, giao buổi chiều..."
-                />
-              </div>
-            </div>
           </div>
 
           {/* Phương thức thanh toán */}
@@ -298,11 +454,13 @@ const Checkout = () => {
             <div className="border-t pt-4 space-y-3">
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Tạm tính</span>
-                <span>{subtotal.toLocaleString('vi-VN')} ₫</span>
+                <span className="font-semibold text-gray-800">{subtotal.toLocaleString('vi-VN')} ₫</span>
               </div>
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Phí vận chuyển</span>
-                <span className="text-green-500 font-medium">Miễn phí</span>
+                <span className={shippingFee === 0 ? "text-green-600 font-semibold" : "font-semibold text-gray-800"}>
+                    {shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString('vi-VN')} ₫`}
+                  </span>
               </div>
               {couponDiscount !== null && (
                 <div className="flex justify-between text-sm text-green-600">
@@ -312,7 +470,7 @@ const Checkout = () => {
               )}
               <div className="flex justify-between font-bold text-lg border-t pt-3">
                 <span>Tổng cộng</span>
-                <span className="text-blue-600">{total.toLocaleString('vi-VN')} ₫</span>
+                <span className="text-blue-600">{totalAmount.toLocaleString('vi-VN')} ₫</span>
               </div>
             </div>
           </div>

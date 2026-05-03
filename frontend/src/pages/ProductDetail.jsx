@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ShoppingCart, ArrowLeft, MessageCircle, Star, CreditCard, CheckCheck, ThumbsUp } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import productService from '../services/product.service';
 import cartService from '../services/cart.service';
 import { useAuth } from '../context/AuthContext';
@@ -202,15 +203,21 @@ const ProductDetail = () => {
   };
 
   if (loading) return <div className="text-center py-20 text-gray-500">Đang tải sản phẩm...</div>;
-  if (error) return <div className="text-center py-20 text-red-500">{error}</div>;
-  if (!product) return <div className="text-center py-20 text-gray-500">Không tìm thấy sản phẩm.</div>;
+  if (error) return <div className="text-center text-red-500 py-10">{error}</div>;
+  if (!product) return null;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6 md:p-12 mb-10">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center text-gray-500 hover:text-blue-600 mb-8 transition"
-      >
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <Helmet>
+        <title>{product.name} | Sport Shop</title>
+        <meta name="description" content={product.description || `Mua ${product.name} tại Sport Shop.`} />
+        <meta property="og:title" content={product.name} />
+        <meta property="og:description" content={product.description || `Mua ${product.name} tại Sport Shop.`} />
+        <meta property="og:image" content={product.imageUrl} />
+        <meta name="twitter:card" content="summary_large_image" />
+      </Helmet>
+
+      <button onClick={() => navigate(-1)} className="flex items-center text-blue-600 hover:text-blue-800 mb-6 font-medium">
         <ArrowLeft className="w-5 h-5 mr-2" />
         Quay lại
       </button>
