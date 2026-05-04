@@ -288,125 +288,128 @@ const AdminProducts = () => {
 
       {/* Modal Thêm/Sửa */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-6 my-8">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-blue-600" />
+                <ShoppingBag className="w-6 h-6 text-blue-600" />
                 {editProduct ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition">
-                <X className="w-5 h-5" />
+              <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition">
+                <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleSave} className="space-y-5">
-              
-              {/* Row 1: Tên & Danh mục */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tên sản phẩm <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                    placeholder="VD: Giày thể thao Nike Air Max"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Danh mục <span className="text-red-500">*</span></label>
-                  <select
-                    value={form.categoryId}
-                    onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white"
-                    required
-                  >
-                    <option value="" disabled>-- Chọn danh mục --</option>
-                    {categories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden">
+              {/* Body (Scrollable) */}
+              <div className="overflow-y-auto p-6 space-y-6 flex-1 custom-scrollbar">
 
-              {/* Row 2: SKU & Brand & Status */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mã sản phẩm (SKU)</label>
-                  <input
-                    type="text"
-                    value={form.sku}
-                    onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
-                    placeholder="VD: NKE-AIR-01"
-                  />
+                {/* Row 1: Tên & Danh mục */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tên sản phẩm <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                      placeholder="VD: Giày thể thao Nike Air Max"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Danh mục <span className="text-red-500">*</span></label>
+                    <select
+                      value={form.categoryId}
+                      onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white"
+                      required
+                    >
+                      <option value="" disabled>-- Chọn danh mục --</option>
+                      {categories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thương hiệu</label>
-                  <input
-                    type="text"
-                    value={form.brand}
-                    onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="VD: Nike, Adidas..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trạng thái</label>
-                  <select
-                    value={form.status}
-                    onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
-                  >
-                    <option value="ACTIVE" className="text-green-600 font-semibold">Hiển thị (Active)</option>
-                    <option value="HIDDEN" className="text-gray-500 font-semibold">Đã ẩn (Hidden)</option>
-                  </select>
-                </div>
-              </div>
 
-              {/* Row 3: Giá, Giá Sale, Kho */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Giá gốc (VNĐ) <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    value={form.price}
-                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                    className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="500000"
-                    min="0"
-                    required
-                  />
+                {/* Row 2: SKU & Brand & Status */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mã sản phẩm (SKU)</label>
+                    <input
+                      type="text"
+                      value={form.sku}
+                      onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
+                      placeholder="VD: NKE-AIR-01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thương hiệu</label>
+                    <input
+                      type="text"
+                      value={form.brand}
+                      onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="VD: Nike, Adidas..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trạng thái</label>
+                    <select
+                      value={form.status}
+                      onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                    >
+                      <option value="ACTIVE" className="text-green-600 font-semibold">Hiển thị (Active)</option>
+                      <option value="HIDDEN" className="text-gray-500 font-semibold">Đã ẩn (Hidden)</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-red-600 mb-1.5">Giá khuyến mãi (VNĐ)</label>
-                  <input
-                    type="number"
-                    value={form.salePrice}
-                    onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))}
-                    className="w-full px-4 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-red-700"
-                    placeholder="Để trống nếu không sale"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Số lượng kho tổng <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    value={form.stock}
-                    onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
-                    placeholder="Sẽ tự tính nếu có biến thể"
-                    min="0"
-                    disabled
-                  />
-                </div>
-              </div>
 
-              {/* Row 4: Biến thể (Kích cỡ, màu sắc) */}
-              <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm space-y-4">
+                {/* Row 3: Giá, Giá Sale, Kho */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Giá gốc (VNĐ) <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      value={form.price}
+                      onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                      className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="500000"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-red-600 mb-1.5">Giá khuyến mãi (VNĐ)</label>
+                    <input
+                      type="number"
+                      value={form.salePrice}
+                      onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))}
+                      className="w-full px-4 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-red-700"
+                      placeholder="Để trống nếu không sale"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Số lượng kho tổng <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      value={form.stock}
+                      onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
+                      placeholder="Sẽ tự tính nếu có biến thể"
+                      min="0"
+                      disabled
+                    />
+                  </div>
+                </div>
+
+                {/* Row 4: Biến thể (Kích cỡ, màu sắc) */}
+                <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm space-y-4">
                  <div className="flex justify-between items-center pb-3 border-b border-gray-100">
                      <label className="block text-sm font-bold text-gray-800">Quản lý Biến thể (Màu sắc, Size, Giá riêng)</label>
                      <button
@@ -636,19 +639,21 @@ const AdminProducts = () => {
                 />
               </div>
 
+              </div>
+
               {/* Buttons */}
-              <div className="flex gap-4 pt-4 border-t border-gray-100">
+              <div className="flex gap-4 px-6 py-5 border-t border-gray-100 flex-shrink-0 bg-gray-50 mt-auto rounded-b-2xl">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="w-32 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 transition"
+                  className="w-32 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-xl font-semibold hover:bg-gray-100 hover:text-black transition shadow-sm"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={saving || uploadingImage}
-                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-60 shadow-md shadow-blue-500/20"
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-blue-600/30"
                 >
                   <Check className="w-5 h-5" />
                   {saving ? 'Đang lưu...' : editProduct ? 'Xác Nhận Cập Nhật' : 'Xác Nhận Thêm Mới'}
