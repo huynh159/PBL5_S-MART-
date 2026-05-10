@@ -11,7 +11,8 @@ import { io } from 'socket.io-client';
 
 const STATUS_MAP = {
   PENDING:   { label: 'Chờ xác nhận', color: 'text-yellow-600', icon: Clock },
-  CONFIRMED: { label: 'Đã xác nhận',  color: 'text-blue-600',   icon: CheckCircle },
+  PAID:      { label: 'Đã thanh toán',  color: 'text-teal-600',   icon: CheckCircle },
+  CONFIRMED: { label: 'Đang chuẩn bị',  color: 'text-blue-600',   icon: CheckCircle },
   SHIPPING:  { label: 'Đang giao',    color: 'text-purple-600', icon: Package },
   DELIVERED: { label: 'Đã giao',      color: 'text-green-600',  icon: CheckCircle },
   CANCELLED: { label: 'Đã hủy',       color: 'text-red-500',    icon: XCircle },
@@ -161,7 +162,7 @@ const Orders = () => {
             const statusInfo = STATUS_MAP[order.status?.toUpperCase()] || STATUS_MAP.PENDING;
             const StatusIcon = statusInfo.icon;
             const orderItems = order.orderItems || order.orderDetails || [];
-            const canCancel = ['PENDING', 'CONFIRMED'].includes(order.status?.toUpperCase());
+            const canCancel = ['PENDING', 'PAID', 'CONFIRMED'].includes(order.status?.toUpperCase());
             const canReview = ['DELIVERED'].includes(order.status?.toUpperCase());
 
             return (
@@ -198,9 +199,26 @@ const Orders = () => {
                   ))}
                 </div>
                 <div className="flex justify-between items-center border-t pt-4">
-                  {canCancel && (
-                    <button onClick={() => handleCancelOrder(order.id)} disabled={cancelingId === order.id} className="text-xs text-red-600 font-bold border border-red-200 px-3 py-1.5 rounded hover:bg-red-50">Hủy đơn</button>
-                  )}
+                  <div className="flex gap-2">
+                    {canCancel && (
+                      <button onClick={() => handleCancelOrder(order.id)} disabled={cancelingId === order.id} className="text-xs text-red-600 font-bold border border-red-200 px-3 py-1.5 rounded hover:bg-red-50">Hủy đơn</button>
+                    )}
+                    {order.status === 'PENDING' && order.paymentMethod === 'VNPAY' && (
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const payData = await orderService.createVnpayPayment(order.id);
+                            window.location.href = payData.paymentUrl;
+                          } catch (err) {
+                            toast.error('Không thể tạo liên kết thanh toán. Thử lại sau!');
+                          }
+                        }}
+                        className="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow-sm transition"
+                      >
+                        Thanh toán ngay
+                      </button>
+                    )}
+                  </div>
                   <div className="text-right">
                     <span className="text-xs text-gray-500 mr-2">Tổng:</span>
                     <span className="font-bold text-red-500">{(order.total || 0).toLocaleString('vi-VN')} ₫</span>

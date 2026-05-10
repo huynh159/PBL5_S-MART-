@@ -35,16 +35,18 @@ class PrismaOrderRepository {
         // Lưu ý: customerId trong Entity lúc này là chuỗi, nhưng DB lưu Int, 
         // ở mức production cần có mapper chuyên biệt.
         const cId = parseInt(order.customerId) || 1;
-        await PrismaClient_1.prisma.order.create({
+        const prismaOrder = await PrismaClient_1.prisma.order.create({
             data: {
                 userId: cId,
-                total: order.totalAmount().amount,
-                status: statusStr,
+                total: order.totalAmount,
+                status: order.status,
+                address: "N/A",
+                phone: "N/A",
                 orderItems: {
-                    create: order.getItems().map(item => ({
-                        productId: 1, // Tạm fix ID do Entity chỉ lưu SKU
-                        quantity: item.quantity,
-                        price: item.unitPrice.amount
+                    create: order.items.map(i => ({
+                        productId: i.productId,
+                        quantity: i.quantity,
+                        price: i.unitPrice.amount
                     }))
                 }
             }

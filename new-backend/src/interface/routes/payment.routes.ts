@@ -132,14 +132,120 @@ router.get('/vnpay-callback', async (req: Request, res: Response): Promise<void>
         const orderId      = parseInt(txnRef.split('_')[0]);
 
         if (responseCode === '00') {
-            await prisma.order.update({
+            const updatedOrder = await prisma.order.update({
                 where: { id: orderId },
-                data:  { status: 'CONFIRMED' as any },
+                data:  { status: 'PAID' as any },
+                include: { user: true }
             });
-            console.log(`[VNPay] Order #${orderId} -> CONFIRMED`);
+            console.log(`[VNPay] Order #${orderId} -> PAID (awaiting admin confirmation)`);
+
+            // ---- THÔNG BÁO CHO USER VÀ ADMIN ----
+            try {
+                const { getIO } = require('../../infrastructure/socket/socketService');
+                const userNotif = await prisma.notification.create({
+                    data: {
+                        userId: updatedOrder.userId,
+                        content: `Đơn hàng #${orderId} đã thanh toán thành công! Đơn hàng đang chờ xác nhận từ cửa hàng.`,
+                        link: '/orders'
+                    }
+                });
+                getIO().to(`user_${updatedOrder.userId}`).emit('receiveNotification', userNotif);
+
+                const managers = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'STAFF'] } } });
+                const adminNotifData = managers.map(admin => ({
+                    userId: admin.id,
+                    content: `Đơn hàng #${orderId} đã thanh toán qua VNPay! Chờ xác nhận.`,
+                    link: '/admin/orders'
+                }));
+                if (adminNotifData.length > 0) {
+                    await prisma.notification.createMany({ data: adminNotifData });
+                    const createdNotifs = await prisma.notification.findMany({
+                        where: { userId: { in: managers.map(m => m.id) } },
+                        orderBy: { id: 'desc' },
+                        take: managers.length
+                    });
+                    for (const notif of createdNotifs) {
+                        getIO().to(`user_${notif.userId}`).emit('receiveNotification', notif);
+                    }
+                }
+                getIO().emit('adminNotification', { content: `Đơn hàng #${orderId} đã thanh toán thành công!` });
+            } catch (err) {
+                console.error('[VNPay Notification Error]', err);
+            }
+
             res.redirect(`${FRONTEND_BASE_URL}/payment-status?status=SUCCESS&orderId=${orderId}`);
         } else {
-            console.log(`[VNPay] Payment failed, responseCode=${responseCode}`);
+            console.log(`[VNPay] Payment failed, responseCode=${responseCode}. Reverting stock...`);
+            
+            try {
+                // ---- LOGIC HOÀN KHO KHI THANH TOÁN THẤT BẠI ----
+                const order = await prisma.order.findUnique({
+                    where: { id: orderId },
+                    include: { orderItems: true }
+                });
+
+                if (order && order.status === 'PENDING') {
+                    await prisma.$transaction(async (tx) => {
+                        for (const item of order.orderItems) {
+                            // Khóa dòng sản phẩm để tránh race condition khi hoàn kho
+                            const productList: any[] = await tx.$queryRaw`SELECT * FROM "products" WHERE "id" = ${item.productId} FOR UPDATE`;
+                            if (!productList || productList.length === 0) continue;
+                            const product = productList[0];
+
+                            let updatedVariations = product.variations;
+                            if (product.variations && (item.color || item.size)) {
+                                try {
+                                    const vars = JSON.parse(product.variations);
+                                    const varIndex = vars.findIndex((v: any) => v.color === item.color && v.size === item.size);
+                                    if (varIndex !== -1) {
+                                        vars[varIndex].stock = (vars[varIndex].stock || 0) + item.quantity;
+                                        updatedVariations = JSON.stringify(vars);
+                                    }
+                                } catch (e) {}
+                            }
+
+                            await tx.product.update({
+                                where: { id: item.productId },
+                                data: {
+                                    stock: { increment: item.quantity },
+                                    variations: updatedVariations
+                                }
+                            });
+                        }
+
+                        if (order.couponId) {
+                            await tx.coupon.update({
+                                where: { id: order.couponId },
+                                data: { quantity: { increment: 1 } }
+                            });
+                        }
+
+                        await tx.order.update({
+                            where: { id: orderId },
+                            data: { status: 'CANCELLED' as any }
+                        });
+                    });
+                    console.log(`[VNPay] Order #${orderId} cancelled and stock reverted.`);
+
+                    // ---- THÔNG BÁO CHO USER KHI THANH TOÁN THẤT BẠI ----
+                    try {
+                        const { getIO } = require('../../infrastructure/socket/socketService');
+                        const userNotif = await prisma.notification.create({
+                            data: {
+                                userId: order.userId,
+                                content: `Thanh toán VNPay cho đơn hàng #${orderId} thất bại. Đơn hàng đã bị hủy và tồn kho đã được hoàn lại.`,
+                                link: '/orders'
+                            }
+                        });
+                        getIO().to(`user_${order.userId}`).emit('receiveNotification', userNotif);
+                    } catch (notifErr) {
+                        console.error('[VNPay Failed Notification Error]', notifErr);
+                    }
+                }
+            } catch (revertError) {
+                console.error('[VNPay Revert Stock Error]', revertError);
+            }
+
             res.redirect(`${FRONTEND_BASE_URL}/payment-status?status=FAILED&orderId=${orderId}`);
         }
     } catch (e: any) {

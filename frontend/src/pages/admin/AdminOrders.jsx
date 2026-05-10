@@ -6,6 +6,7 @@ import { io } from 'socket.io-client';
 
 const STATUS_MAP = {
   PENDING:   { label: 'Chờ xác nhận',    color: 'yellow', icon: Clock },
+  PAID:      { label: 'Đã thanh toán',   color: 'teal',   icon: CheckCircle },
   CONFIRMED: { label: 'Đang chuẩn bị',   color: 'blue',   icon: Clock },
   SHIPPING:  { label: 'Đang giao',       color: 'purple', icon: Clock },
   DELIVERED: { label: 'Đã giao',         color: 'green',  icon: CheckCircle },
@@ -14,6 +15,7 @@ const STATUS_MAP = {
 
 const colorClasses = {
   yellow: 'bg-yellow-100 text-yellow-700',
+  teal:   'bg-teal-100 text-teal-700',
   blue:   'bg-blue-100 text-blue-700',
   purple: 'bg-purple-100 text-purple-700',
   green:  'bg-green-100 text-green-700',
@@ -107,7 +109,7 @@ const AdminOrders = () => {
 
       {/* Filter Tabs */}
       <div className="flex gap-2 flex-wrap">
-        {['ALL', 'PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'].map(s => (
+        {['ALL', 'PENDING', 'PAID', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'].map(s => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -235,12 +237,22 @@ const AdminOrders = () => {
                   <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
                     {(order.status?.toUpperCase() === 'PENDING') && (
                       <>
-                        <button onClick={() => handleUpdateStatus(order.id, 'CONFIRMED')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Xác nhận đơn (Confirmed)</button>
+                        <button onClick={() => handleUpdateStatus(order.id, 'CONFIRMED')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Xác nhận đơn</button>
                         <button onClick={() => handleUpdateStatus(order.id, 'CANCELLED')} className="px-4 py-2 border border-red-500 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium">Hủy đơn</button>
                       </>
                     )}
+                    {order.status?.toUpperCase() === 'PAID' && (
+                      <>
+                        <span className="text-xs text-teal-600 font-semibold bg-teal-50 px-3 py-2 rounded-lg">💰 Đã thanh toán VNPay</span>
+                        <button onClick={() => handleUpdateStatus(order.id, 'CONFIRMED')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Xác nhận & Chuẩn bị</button>
+                        <button onClick={() => handleUpdateStatus(order.id, 'CANCELLED')} className="px-4 py-2 border border-red-500 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium">Hủy đơn (Hoàn tiền)</button>
+                      </>
+                    )}
                     {order.status?.toUpperCase() === 'CONFIRMED' && (
-                      <button onClick={() => handleUpdateStatus(order.id, 'SHIPPING')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium">Giao hàng (Shipping)</button>
+                      <>
+                        <button onClick={() => handleUpdateStatus(order.id, 'SHIPPING')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium">Giao hàng (Shipping)</button>
+                        <button onClick={() => handleUpdateStatus(order.id, 'CANCELLED')} className="px-4 py-2 border border-red-500 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium">Hủy đơn</button>
+                      </>
                     )}
                     {order.status?.toUpperCase() === 'SHIPPING' && (
                       <button onClick={() => handleUpdateStatus(order.id, 'DELIVERED')} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">Xác nhận đã giao (Delivered)</button>

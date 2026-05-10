@@ -5,7 +5,64 @@ const PrismaClient_1 = require("../../infrastructure/persistence/PrismaClient");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
 const socketService_1 = require("../../infrastructure/socket/socketService");
 const router = (0, express_1.Router)();
-// GET /api/orders  (lịch sử đơn hàng của user)
+// POST /api/orders/calculate-fee
+router.post('/calculate-fee', auth_middleware_1.authMiddleware, async (req, res) => {
+    try {
+        const { province, district, ward, weight = 500 } = req.body;
+        let shippingFee = 30000; // Default fallback
+        let estimatedTime = '2-3 ngày';
+        const ghtkToken = process.env.GHTK_TOKEN;
+        if (ghtkToken && province && district) {
+            try {
+                // Gọi API GHTK tĩnh phí vận chuyển
+                const url = new URL('https://services.giaohangtietkiem.vn/services/shipment/fee');
+                url.searchParams.append('pick_province', 'Đà Nẵng'); // Setup kho ở Đà Nẵng
+                url.searchParams.append('pick_district', 'Hải Châu');
+                url.searchParams.append('pick_ward', 'Phường Thạch Thang');
+                url.searchParams.append('province', province);
+                url.searchParams.append('district', district);
+                url.searchParams.append('ward', ward || '');
+                url.searchParams.append('weight', weight.toString());
+                url.searchParams.append('deliver_option', 'none');
+                const response = await fetch(url.toString(), {
+                    method: 'GET',
+                    headers: { 'Token': ghtkToken }
+                });
+                const data = await response.json();
+                if (data && data.success) {
+                    shippingFee = data.fee.fee;
+                }
+                else {
+                    throw new Error('GHTK returned false success');
+                }
+            }
+            catch (error) {
+                console.error('[GHTK API Error] fallback applied:', error.message);
+                // Fallback nếu GHTK lỗi hoặc sập mạng
+                if (province.includes('Đà Nẵng'))
+                    shippingFee = 20000;
+                else if (province.includes('Hà Nội') || province.includes('Hồ Chí Minh'))
+                    shippingFee = 30000;
+                else
+                    shippingFee = 40000;
+            }
+        }
+        else {
+            // Fallback mặc định khi ko có Token
+            if (province && province.includes('Đà Nẵng'))
+                shippingFee = 20000;
+            else if (province && (province.includes('Hà Nội') || province.includes('Hồ Chí Minh')))
+                shippingFee = 30000;
+            else
+                shippingFee = 40000;
+        }
+        res.json({ shippingFee, estimatedTime });
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// GET /api/orders  (l‹ch s ‘n hng ca user)
 router.get('/', auth_middleware_1.authMiddleware, async (req, res) => {
     try {
         const orders = await PrismaClient_1.prisma.order.findMany({
@@ -101,7 +158,7 @@ router.put('/:id/cancel', auth_middleware_1.authMiddleware, async (req, res) => 
 // POST /api/orders  (tạo đơn hàng từ giỏ hàng)
 router.post('/', auth_middleware_1.authMiddleware, async (req, res) => {
     try {
-        const { items, cartItemIds, directItems, address, phone, note, paymentMethod, couponCode, total } = req.body;
+        const { items, cartItemIds, directItems, address, phone, note, paymentMethod, couponCode, total, shippingFee } = req.body;
         if (!address || !phone) {
             res.status(400).json({ message: 'Thiếu thông tin giao hàng' });
             return;
@@ -170,11 +227,13 @@ router.post('/', auth_middleware_1.authMiddleware, async (req, res) => {
                 });
             }
             const computedTotal = Math.max(0, subtotal - Math.round(subtotal * couponDiscountPercent / 100));
-            const finalTotal = typeof total === 'number' && total > 0 ? total : computedTotal;
+            const finalShippingFee = typeof shippingFee === 'number' ? shippingFee : 0;
+            const finalTotal = typeof total === 'number' && total > 0 ? total : computedTotal + finalShippingFee;
             const newOrder = await tx.order.create({
                 data: {
                     userId: req.user.userId,
                     total: finalTotal,
+                    shippingFee: finalShippingFee,
                     address,
                     phone,
                     note,
@@ -239,6 +298,28 @@ router.post('/', auth_middleware_1.authMiddleware, async (req, res) => {
         });
         // Gửi thông báo real-time qua room để hỗ trợ đa luồng
         (0, socketService_1.getIO)().to(`user_${req.user.userId}`).emit('receiveNotification', newNotif);
+        // ---- THÊM THÔNG BÁO CHO QUẢN TRỊ VIÊN VÀO DATABASE ----
+        const managers = await PrismaClient_1.prisma.user.findMany({
+            where: { role: { in: ['ADMIN', 'STAFF'] } }
+        });
+        const adminNotifData = managers.map(admin => ({
+            userId: admin.id,
+            content: `Đơn hàng mới #${order.id} vừa được đặt!`,
+            link: '/admin/orders'
+        }));
+        if (adminNotifData.length > 0) {
+            await PrismaClient_1.prisma.notification.createMany({ data: adminNotifData });
+            // Lấy lại các thông báo vừa tạo để emit chính xác kèm id
+            const createdNotifs = await PrismaClient_1.prisma.notification.findMany({
+                where: { userId: { in: managers.map(m => m.id) } },
+                orderBy: { id: 'desc' },
+                take: managers.length
+            });
+            // Gửi 'receiveNotification' đến từng manager online để đổ chuông NotificationDropdown
+            for (const notif of createdNotifs) {
+                (0, socketService_1.getIO)().to(`user_${notif.userId}`).emit('receiveNotification', notif);
+            }
+        }
         (0, socketService_1.getIO)().emit('adminNotification', { content: `Đơn hàng mới #${order.id} vừa được đặt!` });
         res.status(201).json(order);
     }

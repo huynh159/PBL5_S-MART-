@@ -12,11 +12,22 @@ router.get('/stats', authMiddleware, adminMiddleware, async (req: Request, res: 
         
         const [totalRevenue, totalOrders, totalProducts, totalUsers, orderStatusStats, monthlyData, yearsRaw] = await Promise.all([
             prisma.order.aggregate({ _sum: { total: true }, where: { status: 'DELIVERED' } }),
-            prisma.order.count(),
+            prisma.order.count({
+                where: {
+                    NOT: {
+                        AND: [{ paymentMethod: 'VNPAY' }, { status: 'PENDING' }]
+                    }
+                }
+            }),
             prisma.product.count(),
             prisma.user.count(),
             prisma.order.groupBy({
                 by: ['status'],
+                where: {
+                    NOT: {
+                        AND: [{ paymentMethod: 'VNPAY' }, { status: 'PENDING' }]
+                    }
+                },
                 _count: { id: true }
             }),
             prisma.$queryRaw<any[]>`
@@ -84,6 +95,14 @@ router.put('/users/:id/toggle-lock', authMiddleware, adminMiddleware, async (req
 router.get('/orders', authMiddleware, adminMiddleware, async (_req: Request, res: Response): Promise<void> => {
     try {
         const orders = await prisma.order.findMany({
+            where: {
+                NOT: {
+                    AND: [
+                        { paymentMethod: 'VNPAY' },
+                        { status: 'PENDING' }
+                    ]
+                }
+            },
             include: { user: { select: { id: true, email: true } }, orderItems: { include: { product: true } }, coupon: true },
             orderBy: { createdAt: 'desc' }
         });
@@ -98,6 +117,7 @@ router.put('/orders/:id/status', authMiddleware, adminMiddleware, async (req: Re
         const { status } = req.body;
         const VALID_TRANSITIONS: Record<string, string[]> = {
             PENDING: ['CONFIRMED', 'CANCELLED'],
+            PAID: ['CONFIRMED', 'CANCELLED'],
             CONFIRMED: ['SHIPPING', 'CANCELLED'],
             SHIPPING: ['DELIVERED'],
             DELIVERED: [], CANCELLED: []
@@ -111,7 +131,7 @@ router.put('/orders/:id/status', authMiddleware, adminMiddleware, async (req: Re
 
         // Gửi thông báo cho user (Tạo record DB để người dùng xem lại ở chuông thông báo)
         let message = `Đơn hàng #${id} đã được cập nhật trạng thái mới.`;
-        if (status === 'CONFIRMED') message = `Đơn hàng #${id} của bạn đang được chuẩn bị.`;
+        if (status === 'CONFIRMED') message = `Đơn hàng #${id} của bạn đã được xác nhận và đang chuẩn bị.`;
         else if (status === 'SHIPPING') message = `Đơn hàng #${id} của bạn đang được giao.`;
         else if (status === 'DELIVERED') message = `Đơn hàng #${id} của bạn đã giao thành công.`;
         else if (status === 'CANCELLED') message = `Đơn hàng #${id} của bạn đã bị hủy.`;
@@ -144,6 +164,7 @@ router.post('/coupons', authMiddleware, adminMiddleware, async (req: Request, re
         const data = { ...req.body };
         if (data.expiryDate) data.expiryDate = new Date(data.expiryDate);
         if (data.discountPercent) data.discountPercent = Number(data.discountPercent);
+        if (data.quantity !== undefined) data.quantity = Number(data.quantity);
 
         let existing = await prisma.coupon.findUnique({ where: { code: data.code }});
         if (existing) {
@@ -163,6 +184,7 @@ router.put('/coupons/:id', authMiddleware, adminMiddleware, async (req: Request,
         const data = { ...req.body };
         if (data.expiryDate) data.expiryDate = new Date(data.expiryDate);
         if (data.discountPercent) data.discountPercent = Number(data.discountPercent);
+        if (data.quantity !== undefined) data.quantity = Number(data.quantity);
 
         // Remove `id` just in case it's passed in body to prevent update issues
         delete data.id;

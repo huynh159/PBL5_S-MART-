@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ScrollToTop from './components/ScrollToTop';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,6 +20,7 @@ import Orders from './pages/Orders';
 import SingleOrder from './pages/SingleOrder';
 import PaymentCallback from './pages/PaymentCallback';
 import Profile from './pages/Profile';
+import Vouchers from './pages/Vouchers';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
@@ -30,6 +32,7 @@ const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminChat = lazy(() => import('./pages/admin/AdminChat'));
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'));
+const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
 
 const Loading = () => (
   <div className="flex items-center justify-center p-20 text-gray-400">Đang tải...</div>
@@ -40,6 +43,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <CartProvider>
+          <ScrollToTop />
           <Routes>
             {/* Auth Layout */}
             <Route element={<AuthLayout />}>
@@ -59,6 +63,7 @@ function App() {
               <Route path="/orders" element={<Orders />} />
               <Route path="/orders/:id" element={<SingleOrder />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/vouchers" element={<Vouchers />} />
               <Route path="/chat" element={
                 <Suspense fallback={<Loading />}><Chat /></Suspense>
               } />
@@ -84,10 +89,14 @@ function App() {
               <Route path="coupons" element={
                 <Suspense fallback={<Loading />}><AdminCoupons /></Suspense>
               } />
+              <Route path="notifications" element={
+                <Suspense fallback={<Loading />}><AdminNotifications /></Suspense>
+              } />
               <Route path="chat" element={
                 <Suspense fallback={<Loading />}><AdminChat /></Suspense>
               } />
             </Route>
+
           </Routes>
 
           <ToastContainer

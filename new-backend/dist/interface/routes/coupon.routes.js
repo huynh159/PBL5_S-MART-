@@ -34,11 +34,20 @@ router.post('/', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddle
         if (data.expiryDate) {
             data.expiryDate = new Date(data.expiryDate);
         }
+        if (typeof data.discountPercent !== 'undefined') {
+            data.discountPercent = Number(data.discountPercent);
+        }
+        // Cehck existing
+        const existing = await PrismaClient_1.prisma.coupon.findUnique({ where: { code: data.code } });
+        if (existing) {
+            res.status(400).json({ error: 'Mã giảm giá đã tồn tại' });
+            return;
+        }
         const coupon = await PrismaClient_1.prisma.coupon.create({ data });
         res.status(201).json(coupon);
     }
     catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message || 'Lỗi server' });
     }
 });
 // PUT /api/coupons/:id (Admin)
@@ -49,11 +58,15 @@ router.put('/:id', auth_middleware_1.authMiddleware, auth_middleware_1.adminMidd
         if (data.expiryDate) {
             data.expiryDate = new Date(data.expiryDate);
         }
+        if (typeof data.discountPercent !== 'undefined') {
+            data.discountPercent = Number(data.discountPercent);
+        }
+        delete data.id; // ensure ID is not passed to data update
         const coupon = await PrismaClient_1.prisma.coupon.update({ where: { id }, data });
         res.json(coupon);
     }
     catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message || 'Lỗi server' });
     }
 });
 // DELETE /api/coupons/:id (Admin)

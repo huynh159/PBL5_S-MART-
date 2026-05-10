@@ -1,51 +1,45 @@
-# Project Status & Handover (04/2026)
+# Project Status (05/2026)
 
-Tài liệu bàn giao cho hệ thống **Node.js (TypeScript) + Prisma + PostgreSQL**.
+Hệ thống **Node.js (TypeScript) + Prisma + PostgreSQL**.
 
----
+## Hoàn thành ✅
+- [x] Chuyển đổi từ Java Spring Boot → Node.js TypeScript
+- [x] Authentication (JWT, BCrypt, OTP, Google OAuth2)
+- [x] Phân quyền Role: ADMIN / CUSTOMER
+- [x] CRUD Sản phẩm, Danh mục, Đơn hàng, Người dùng
+- [x] Chat Real-time (Socket.io) giữa User ↔ Admin
+- [x] Dashboard thống kê (doanh thu, trạng thái đơn hàng)
+- [x] Thanh toán VNPay + COD
+- [x] Mã giảm giá (Coupon)
+- [x] Reviews (Rating + Comment)
+- [x] Upload hình ảnh
+- [x] Notifications Real-time
+- [x] Seeding dữ liệu mẫu (`npx prisma db seed`)
+- [x] Domain Layer OOD (Value Objects, Entities, Strategy Pattern, State Machine)
+- [x] Unit Tests domain (5/5 test cases)
 
-## 1) Trạng thái hiện tại
+## Ưu tiên tiếp theo
+- [ ] Tối ưu SEO & Metadata
+- [ ] Cải thiện UI/UX lịch sử mua hàng
 
-### Hoàn thành
-- [x] Chuyển đổi thành công từ Java sang Node.js (TypeScript).
-- [x] Authentication & Authorization (JWT, Role ADMIN/CUSTOMER, BCrypt, OTP).
-- [x] Quản lý Sản phẩm, Danh mục, Đơn hàng, Người dùng.
-- [x] Chat Real-time giữa User và Admin (Sử dụng Socket.io).
-- [x] Dashboard Stats (Biểu đồ doanh thu và trạng thái đơn hàng đồng bộ).
-- [x] Thanh toán VNPay tích hợp hoàn chỉnh (đã fix port 3001).
-- [x] Cơ chế Seeding dữ liệu mẫu thông minh (`npx prisma db seed`).
+## Database
+Schema duy nhất: `new-backend/prisma/schema.prisma`
 
-### Ưu tiên tiếp theo
-- [ ] Bổ sung Unit Test cho logic Order và Chat.
-- [ ] Tối ưu hóa SEO và Metadata cho trang sản phẩm.
-- [ ] Cải thiện UI/UX phần lịch sử mua hàng.
+```bash
+cd new-backend
+npx prisma db push    # Áp schema
+npx prisma db seed    # Dữ liệu mẫu
+npx prisma studio     # Xem data trên trình duyệt
+```
 
----
+## Tài khoản mẫu
+| Role     | Email              | Password |
+|----------|--------------------|----------|
+| Admin    | admin@smart.com    | 123456   |
+| Customer | customer@gmail.com | 123456   |
+| Customer | user2@gmail.com    | 123456   |
 
-## 2) Quy chuẩn Database (Prisma)
-
-Hệ thống đã loại bỏ các file `.sql` cũ. Toàn bộ cấu trúc được định nghĩa tại:
-`new-backend/prisma/schema.prisma`
-
-### Các lệnh quan trọng:
-- `npx prisma db push`: Đồng bộ schema vào Database.
-- `npx prisma db seed`: Khởi tạo dữ liệu mẫu (Admin, Customer, Sản phẩm).
-- `npx prisma studio`: Xem dữ liệu trực quan qua trình duyệt.
-
----
-
-## 3) Thông tin tài khoản mẫu
-
-| Vai trò   | Email                 | Mật khẩu |
-|-----------|-----------------------|----------|
-| Admin     | admin@smart.com       | 123456   |
-| Khách 1   | customer@gmail.com    | 123456   |
-| Khách 2   | user2@gmail.com       | 123456   |
-
----
-
-## 4) Cấu trúc thư mục
-
-- `frontend/`: React + Vite + Tailwind v4.
-- `new-backend/`: Node.js + Express + Prisma.
-- `doc/`: Tài liệu API và hướng dẫn.
+## Cấu trúc thư mục
+- `frontend/` — React + Vite + Tailwind v4
+- `new-backend/` — Node.js + Express + Prisma (Clean Architecture + DDD)
+- `doc/` — Tài liệu API

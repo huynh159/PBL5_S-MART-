@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { ShoppingBag, Plus, Pencil, Trash2, X, Check, Upload, ImageIcon } from 'lucide-react';
+import { 
+  ShoppingBag, Plus, Pencil, Trash2, X, Check, 
+  Upload, ImageIcon, Sparkles, Brain, Loader2,
+  Search, Filter, ExternalLink, ChevronRight,
+  MoreVertical, AlertCircle
+} from 'lucide-react';
 import productService from '../../services/product.service';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
@@ -13,18 +19,17 @@ const AdminProducts = () => {
   const initialForm = {
       name: '', price: '', salePrice: '', sku: '',
       description: '', stock: '', imageUrl: '', imageUrls: [],
-      categoryId: '', status: 'ACTIVE', brand: '', variations: ''
+      categoryId: '', status: 'ACTIVE', brand: '', variations: '[]'
   };
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
-
-  // States for bulk variant generation
   const [bulkColors, setBulkColors] = useState('');
   const [bulkSizes, setBulkSizes] = useState('');
-
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [search, setSearch] = useState('');
+  const [embedStatus, setEmbedStatus] = useState(null);
+  const [embedding, setEmbedding] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -37,13 +42,43 @@ const AdminProducts = () => {
       setCategories(catData);
     } catch (err) {
       toast.error('Lỗi tải dữ liệu');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    productService.getEmbedStatus().then(data => setEmbedStatus(data)).catch(() => {});
+  }, []);
+
+  // Tự động cập nhật tổng kho khi biến thể thay đổi
+  useEffect(() => {
+    try {
+      const vars = JSON.parse(form.variations || '[]');
+      if (vars.length > 0) {
+        const total = vars.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+        if (total !== parseInt(form.stock)) {
+          setForm(f => ({ ...f, stock: total }));
+        }
+      }
+    } catch (e) {}
+  }, [form.variations]);
+
+  const handleGenerateEmbeddings = async () => {
+    if (!window.confirm('Tạo vector AI cho tất cả sản phẩm?')) return;
+    setEmbedding(true);
+    try {
+      const result = await productService.generateAllEmbeddings();
+      toast.success(result.message);
+      const newStatus = await productService.getEmbedStatus();
+      setEmbedStatus(newStatus);
+    } catch (err) {
+      toast.error('Lỗi khi tạo vector AI');
+    } finally {
+      setEmbedding(false);
+    }
+  };
 
   const openAdd = () => {
     setEditProduct(null);
@@ -81,7 +116,7 @@ const AdminProducts = () => {
       try {
           const res = await productService.uploadImage(file);
           setForm(f => ({ ...f, imageUrl: res.url }));
-          toast.success("Tải ảnh lên thành công");
+          toast.success("Tải ảnh chính thành công");
       } catch (err) {
           toast.error("Lỗi khi tải ảnh lên");
       } finally {
@@ -90,43 +125,32 @@ const AdminProducts = () => {
   };
 
   const handleMultipleImagesUpload = async (e) => {
-      const files = Array.from(e.target.files);
-      if (!files.length) return;
-      setUploadingImages(true);
-      try {
-          const uploadPromises = files.map(file => productService.uploadImage(file));
-          const results = await Promise.all(uploadPromises);
-          const urls = results.map(res => res.url);
-          setForm(f => ({ ...f, imageUrls: [...(f.imageUrls || []), ...urls] }));
-          toast.success("Tải ảnh thành công");
-      } catch (err) {
-          toast.error("Lỗi khi tải ảnh lên");
-      } finally {
-          setUploadingImages(false);
-      }
-  };
-
-  const removeMultipleImage = (index) => {
-      setForm(f => {
-          const newUrls = [...f.imageUrls];
-          newUrls.splice(index, 1);
-          return { ...f, imageUrls: newUrls };
-      });
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    setUploadingImages(true);
+    try {
+        const uploadPromises = files.map(file => productService.uploadImage(file));
+        const results = await Promise.all(uploadPromises);
+        const newUrls = results.map(r => r.url);
+        setForm(f => ({ ...f, imageUrls: [...(f.imageUrls || []), ...newUrls] }));
+        toast.success(`Đã tải lên ${newUrls.length} ảnh phụ`);
+    } catch (err) {
+        toast.error("Lỗi khi tải một hoặc nhiều ảnh");
+    } finally {
+        setUploadingImages(false);
+    }
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.categoryId) {
-      toast.warning('Vui lòng điền đầy đủ thông tin bắt buộc!');
+      toast.warning('Vui lòng điền đủ thông tin!');
       return;
     }
     setSaving(true);
     try {
-      // Calculate total stock from variations if existing
       let parsedVariations = [];
-      try {
-        parsedVariations = JSON.parse(form.variations || '[]');
-      } catch(e) {}
+      try { parsedVariations = JSON.parse(form.variations || '[]'); } catch(e) {}
 
       let totalStock = parseInt(form.stock) || 0;
       if (parsedVariations.length > 0) {
@@ -142,28 +166,28 @@ const AdminProducts = () => {
       };
       if (editProduct) {
         await productService.updateProduct(editProduct.id, payload);
-        toast.success('Cập nhật sản phẩm thành công!');
+        toast.success('Cập nhật thành công!');
       } else {
         await productService.createProduct(payload);
-        toast.success('Thêm sản phẩm thành công!');
+        toast.success('Thêm thành công!');
       }
       setShowModal(false);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra!');
+      toast.error('Có lỗi xảy ra!');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Xác nhận xóa sản phẩm "${name}"?`)) return;
+    if (!window.confirm(`Xóa sản phẩm "${name}"?`)) return;
     try {
       await productService.deleteProduct(id);
-      toast.success('Đã xóa sản phẩm!');
+      toast.success('Đã xóa!');
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (err) {
-      toast.error('Lỗi khi xóa sản phẩm!');
+      toast.error('Lỗi khi xóa!');
     }
   };
 
@@ -173,498 +197,454 @@ const AdminProducts = () => {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ShoppingBag className="w-7 h-7 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-800">Quản Lý Sản Phẩm</h1>
+    <div className="space-y-8 pb-10">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-display font-black text-slate-800 tracking-tight">Product Inventory</h1>
+          <p className="text-slate-500 font-medium mt-1">Quản lý kho hàng và thông tin sản phẩm S-Mart.</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold transition shadow"
-        >
-          <Plus className="w-5 h-5" /> Thêm Sản Phẩm
+        <button onClick={openAdd} className="btn-primary shadow-xl shadow-indigo-600/20">
+          <Plus className="w-5 h-5" /> Thêm Sản Phẩm Mới
         </button>
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-        <input
-          type="text"
-          placeholder="Tìm kiếm theo Tên hoặc Mã sản phẩm (SKU)..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-        />
+      {/* AI & Search Bar Group */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Search Input */}
+        <div className="lg:col-span-2 relative group">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+          <input
+            type="text"
+            placeholder="Tìm theo tên, mã SKU hoặc thương hiệu..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-white border-none rounded-2xl py-4 pl-14 pr-4 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium"
+          />
+        </div>
+
+        {/* AI Vector Search Panel */}
+        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-4 text-white shadow-xl shadow-indigo-600/20 flex items-center justify-between group">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 group-hover:rotate-12 transition-transform">
+              <Brain className="w-6 h-6 text-indigo-100" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-amber-400" /> AI Vector
+              </h3>
+              <p className="text-[10px] text-indigo-200 font-black">
+                {embedStatus ? `${embedStatus.percentage}% SYNCED` : 'CHECKING...'}
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={handleGenerateEmbeddings} 
+            disabled={embedding}
+            className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center border border-white/10"
+          >
+            {embedding ? <Loader2 className="w-5 h-5 animate-spin" /> : <TrendingUp className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>
-              <th className="px-6 py-4 text-left font-semibold text-gray-600 w-16">ID</th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-600">Sản phẩm</th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-600">Phân loại</th>
-              <th className="px-6 py-4 text-right font-semibold text-gray-600">Trạng thái/Kho</th>
-              <th className="px-6 py-4 text-center font-semibold text-gray-600 w-24">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {loading ? (
-              <tr><td colSpan={5} className="py-12 text-center text-gray-400">Đang tải...</td></tr>
-            ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan={5} className="py-12 text-center text-gray-400">Chưa có sản phẩm nào</td></tr>
-            ) : filteredProducts.map(p => (
-              <tr key={p.id} className={`transition-colors hover:bg-blue-50/30 ${p.status === 'HIDDEN' ? 'opacity-60 bg-gray-50' : ''}`}>
-                <td className="px-6 py-4 text-gray-500">#{p.id}</td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
-                      {p.imageUrl
-                        ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                        : <ImageIcon className="w-6 h-6 text-gray-300" />
-                      }
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-800 line-clamp-1">{p.name}</div>
-                      {p.sku && <div className="text-xs font-mono text-gray-500 mt-0.5">SKU: {p.sku}</div>}
-                      <div className="text-sm font-semibold text-blue-600 mt-1">
-                          {p.salePrice ? (
-                             <>
-                               {p.salePrice.toLocaleString('vi-VN')} ₫
-                               <span className="text-xs text-gray-400 line-through ml-2 font-normal">{p.price?.toLocaleString('vi-VN')} ₫</span>
-                             </>
+      {/* Products Table - Re-designed */}
+      <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Product Info</th>
+                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Category & Brand</th>
+                <th className="px-8 py-5 text-right text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Inventory</th>
+                <th className="px-8 py-5 text-right text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                <th className="px-8 py-5 text-center text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              <AnimatePresence>
+                {loading ? (
+                  <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-500" /></td></tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr><td colSpan={5} className="py-20 text-center text-slate-400 font-bold italic">Chưa có sản phẩm nào được tìm thấy...</td></tr>
+                ) : filteredProducts.map((p, i) => (
+                  <motion.tr 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.02 }}
+                    key={p.id} 
+                    className="group hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-5">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
                           ) : (
-                             `${p.price?.toLocaleString('vi-VN')} ₫`
+                            <ImageIcon className="w-6 h-6 text-slate-300 mx-auto mt-5" />
                           )}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-slate-800 line-clamp-1">{p.name}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded tracking-tighter uppercase">{p.sku || 'NO SKU'}</span>
+                            <span className="text-xs font-bold text-slate-900">{p.price?.toLocaleString('vi-VN')} ₫</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-bold text-slate-700">{p.category?.name || 'Uncategorized'}</span>
+                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{p.brand || 'No Brand'}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-right">
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className={`text-sm font-black ${
+                          p.stock > 10 ? 'text-emerald-600' : p.stock > 0 ? 'text-amber-600' : 'text-rose-600'
+                        }`}>
+                          {p.stock} Units
+                        </span>
+                        <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full ${p.stock > 10 ? 'bg-emerald-500' : p.stock > 0 ? 'bg-amber-500' : 'bg-rose-500'}`} 
+                            style={{ width: `${Math.min(p.stock, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-right">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        {p.status === 'ACTIVE' ? 'Published' : 'Hidden'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEdit(p)} className="p-2.5 bg-white border border-slate-100 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl shadow-sm transition-all">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDelete(p.id, p.name)} className="p-2.5 bg-white border border-slate-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl shadow-sm transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modern Modal - Re-designed */}
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                    <Plus className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-display font-black text-slate-800 tracking-tight">
+                      {editProduct ? 'Edit Sports Gear' : 'Add New Equipment'}
+                    </h2>
+                    <p className="text-sm text-slate-400 font-medium uppercase tracking-widest">Product Details & Configuration</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowModal(false)} className="p-3 hover:bg-slate-100 rounded-full transition-colors">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSave} className="flex-1 overflow-y-auto custom-scrollbar p-10 space-y-12">
+                
+                {/* Section: Basic Information */}
+                <div className="grid lg:grid-cols-12 gap-12">
+                  <div className="lg:col-span-4 space-y-6">
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Media & Identity</h3>
+                    
+                    {/* Main Image */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Ảnh chính</label>
+                      <div className="aspect-square rounded-[2rem] bg-slate-100 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
+                        {form.imageUrl ? (
+                          <img src={form.imageUrl} className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-12 h-12 text-slate-300" />
+                        )}
+                        <label className="absolute inset-0 flex items-center justify-center bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <Upload className="w-8 h-8 text-white mb-2" />
+                          <input type="file" className="hidden" onChange={handleImageUpload} />
+                        </label>
+                        {uploadingImage && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>}
+                      </div>
+                    </div>
+
+                    {/* Secondary Images (imageUrls) */}
+                    <div className="space-y-4 pt-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Ảnh phụ (Gallery)</label>
+                        <label className="cursor-pointer text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                          <Plus className="w-4 h-4" />
+                          <span className="text-xs font-bold">Thêm ảnh</span>
+                          <input type="file" multiple className="hidden" onChange={handleMultipleImagesUpload} />
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {form.imageUrls?.map((url, idx) => (
+                          <div key={idx} className="aspect-square rounded-xl bg-slate-100 relative group overflow-hidden border border-slate-200">
+                            <img src={url} className="w-full h-full object-cover" />
+                            <button 
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, imageUrls: f.imageUrls.filter((_, i) => i !== idx) }))}
+                              className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        {uploadingImages && (
+                          <div className="aspect-square rounded-xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </td>
-                <td className="px-6 py-4">
-                    <div className="inline-flex flex-col gap-1 items-start">
-                        <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded-md border border-gray-200">{p.category?.name || 'Chưa phân loại'}</span>
-                        {p.brand && <span className="text-xs text-blue-600 font-medium">{p.brand}</span>}
-                    </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex flex-col items-end gap-1.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
-                          {p.status === 'ACTIVE' ? 'HIỂN THỊ' : 'ĐÃ ẨN'}
-                      </span>
-                      <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${
-                        p.stock > 10 ? 'bg-green-50 text-green-700 border border-green-200' :
-                        p.stock > 0 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-                        'bg-red-50 text-red-700 border border-red-200'
-                      }`}>
-                        Kho: {p.stock}
-                      </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <button
-                      onClick={() => openEdit(p)}
-                      className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                      title="Chỉnh sửa"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p.id, p.name)}
-                      className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition"
-                      title="Xóa"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Modal Thêm/Sửa */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">
-              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <ShoppingBag className="w-6 h-6 text-blue-600" />
-                {editProduct ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}
-              </h2>
-              <button type="button" onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden">
-              {/* Body (Scrollable) */}
-              <div className="overflow-y-auto p-6 space-y-6 flex-1 custom-scrollbar">
-
-                {/* Row 1: Tên & Danh mục */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tên sản phẩm <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      value={form.name}
-                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      placeholder="VD: Giày thể thao Nike Air Max"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Danh mục <span className="text-red-500">*</span></label>
-                    <select
-                      value={form.categoryId}
-                      onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white"
-                      required
-                    >
-                      <option value="" disabled>-- Chọn danh mục --</option>
-                      {categories.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Row 2: SKU & Brand & Status */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mã sản phẩm (SKU)</label>
-                    <input
-                      type="text"
-                      value={form.sku}
-                      onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
-                      placeholder="VD: NKE-AIR-01"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thương hiệu</label>
-                    <input
-                      type="text"
-                      value={form.brand}
-                      onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="VD: Nike, Adidas..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trạng thái</label>
-                    <select
-                      value={form.status}
-                      onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
-                    >
-                      <option value="ACTIVE" className="text-green-600 font-semibold">Hiển thị (Active)</option>
-                      <option value="HIDDEN" className="text-gray-500 font-semibold">Đã ẩn (Hidden)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Row 3: Giá, Giá Sale, Kho */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Giá gốc (VNĐ) <span className="text-red-500">*</span></label>
-                    <input
-                      type="number"
-                      value={form.price}
-                      onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                      className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="500000"
-                      min="0"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-red-600 mb-1.5">Giá khuyến mãi (VNĐ)</label>
-                    <input
-                      type="number"
-                      value={form.salePrice}
-                      onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))}
-                      className="w-full px-4 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-red-700"
-                      placeholder="Để trống nếu không sale"
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Số lượng kho tổng <span className="text-red-500">*</span></label>
-                    <input
-                      type="number"
-                      value={form.stock}
-                      onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-100"
-                      placeholder="Sẽ tự tính nếu có biến thể"
-                      min="0"
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                {/* Row 4: Biến thể (Kích cỡ, màu sắc) */}
-                <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm space-y-4">
-                 <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                     <label className="block text-sm font-bold text-gray-800">Quản lý Biến thể (Màu sắc, Size, Giá riêng)</label>
-                     <button
-                        type="button"
-                        onClick={() => {
-                            let vars = [];
-                            try { vars = JSON.parse(form.variations || '[]'); } catch(e) {}
-                            vars.push({ color: '', size: '', stock: 0, price: '' });
-                            setForm(f => ({ ...f, variations: JSON.stringify(vars) }));
-                        }}
-                        className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-100 transition"
-                     >
-                        + Thêm 1 dòng
-                     </button>
-                 </div>
-
-                 {/* Bulk Generator */}
-                 <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 space-y-3">
-                    <p className="text-xs font-semibold text-blue-800">Tạo Nhanh Biến Thể</p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <input
-                            type="text" placeholder="Nhập các màu (VD: Đen, Trắng, Đỏ)" value={bulkColors}
-                            onChange={(e) => setBulkColors(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-blue-200 rounded-md text-sm outline-none focus:border-blue-500"
+                  <div className="lg:col-span-8 space-y-8">
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Essential Details</h3>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="col-span-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Product Name</label>
+                        <input 
+                          type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                          className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
                         />
-                        <input
-                            type="text" placeholder="Nhập các size (VD: S, M, 38, 39)" value={bulkSizes}
-                            onChange={(e) => setBulkSizes(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-blue-200 rounded-md text-sm outline-none focus:border-blue-500"
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">SKU Code</label>
+                        <input 
+                          type="text" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
+                          className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
                         />
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const colorsArr = bulkColors.split(',').map(s=>s.trim()).filter(Boolean);
-                                const sizesArr = bulkSizes.split(',').map(s=>s.trim()).filter(Boolean);
-                                if (!colorsArr.length && !sizesArr.length) {
-                                    toast.warning('Vui lòng nhập màu hoặc size để tạo');
-                                    return;
-                                }
-
-                                const baseColors = colorsArr.length > 0 ? colorsArr : [''];
-                                const baseSizes = sizesArr.length > 0 ? sizesArr : [''];
-
-                                let newVars = [];
-                                baseColors.forEach(c => {
-                                    baseSizes.forEach(s => {
-                                        newVars.push({ color: c, size: s, stock: 0, price: '' });
-                                    });
-                                });
-
-                                setForm(f => ({ ...f, variations: JSON.stringify(newVars) }));
-                                toast.success(`Đã tạo ${newVars.length} biến thể`);
-                            }}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-semibold hover:bg-blue-700 transition whitespace-nowrap shadow-sm"
+                      </div>
+                      <div>
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Category</label>
+                        <select 
+                          value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
+                          className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
                         >
-                            Tự động tạo
-                        </button>
+                          <option value="">Select Category</option>
+                          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-blue-600 italic">*Lưu ý: Bấm tạo tự động sẽ ghi đè các biến thể đang có.</p>
-                 </div>
-
-                 <div className="space-y-3 pt-2 max-h-[400px] overflow-y-auto pr-2">
-                     {(() => {
-                         let vars = [];
-                         try { vars = JSON.parse(form.variations || '[]'); } catch(e) {}
-
-                         if(vars.length === 0) return <div className="text-sm text-gray-500 italic">Chưa có biến thể nào. Sản phẩm sẽ sử dụng tồn kho/giá mặc định. <button type="button" onClick={()=>setForm(f=>({...f, disabledStock:false}))} className="text-blue-500 underline ml-2">Nhập tay kho tổng</button></div>;
-
-                         // Group variations by color for better UI
-                         const grouped = vars.reduce((acc, current, index) => {
-                             const c = current.color || '(Không xác định)';
-                             if (!acc[c]) acc[c] = [];
-                             acc[c].push({ ...current, originalIndex: index });
-                             return acc;
-                         }, {});
-
-                         return Object.entries(grouped).map(([colorKey, items]) => (
-                             <div key={colorKey} className="border border-blue-100 rounded-lg overflow-hidden bg-white mb-4 shadow-sm">
-                                 <div className="bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 border-b border-blue-100 flex items-center gap-2">
-                                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                                     Nhóm Màu: {colorKey}
-                                 </div>
-                                 <div className="p-3 space-y-2">
-                                     {items.map((v) => {
-                                         const idx = v.originalIndex;
-                                         return (
-                                            <div key={idx} className="flex flex-wrap items-center gap-3 bg-gray-50 p-2.5 rounded-lg border border-gray-100 transition-colors hover:border-blue-300">
-                                                <div className="flex-1 min-w-[100px]">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Đổi Màu</label>
-                                                    <input
-                                                        type="text" placeholder="Đỏ" value={vars[idx].color || ''}
-                                                        onChange={(e) => {
-                                                            const newVars = [...vars];
-                                                            newVars[idx].color = e.target.value;
-                                                            setForm(f => ({...f, variations: JSON.stringify(newVars)}));
-                                                        }}
-                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500"
-                                                    />
-                                                </div>
-                                                <div className="flex-1 min-w-[90px]">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Size</label>
-                                                    <input
-                                                        type="text" placeholder="38" value={vars[idx].size || ''}
-                                                        onChange={(e) => {
-                                                            const newVars = [...vars];
-                                                            newVars[idx].size = e.target.value;
-                                                            setForm(f => ({...f, variations: JSON.stringify(newVars)}));
-                                                        }}
-                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500"
-                                                    />
-                                                </div>
-                                                <div className="w-24">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Kho</label>
-                                                    <input
-                                                        type="number" placeholder="Kho" value={vars[idx].stock !== undefined ? vars[idx].stock : 0} min="0"
-                                                        onChange={(e) => {
-                                                            const newVars = [...vars];
-                                                            newVars[idx].stock = parseInt(e.target.value) || 0;
-                                                            const total = newVars.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
-                                                            setForm(f => ({...f, variations: JSON.stringify(newVars), stock: total}));
-                                                        }}
-                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500"
-                                                    />
-                                                </div>
-                                                <div className="w-28">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block mb-1">Giá Riêng</label>
-                                                    <input
-                                                        type="number" placeholder="Bỏ trống" value={vars[idx].price || ''} min="0"
-                                                        onChange={(e) => {
-                                                            const newVars = [...vars];
-                                                            newVars[idx].price = e.target.value ? parseInt(e.target.value) : '';
-                                                            setForm(f => ({...f, variations: JSON.stringify(newVars)}));
-                                                        }}
-                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:border-blue-500 text-blue-700 font-semibold"
-                                                    />
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    title="Xóa biến thể này"
-                                                    onClick={() => {
-                                                        const newVars = [...vars];
-                                                        newVars.splice(idx, 1);
-                                                        const total = newVars.reduce((sum, item) => sum + (parseInt(item.stock) || 0), 0);
-                                                        setForm(f => ({...f, variations: JSON.stringify(newVars), stock: total}));
-                                                    }}
-                                                    className="w-8 h-8 flex items-center justify-center mt-4 text-red-500 hover:bg-red-100 rounded-md transition"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                         );
-                                     })}
-                                 </div>
-                             </div>
-                         ));
-                     })()}
-                 </div>
-              </div>
-
-              {/* Ảnh */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Hình ảnh sản phẩm</label>
-                <div className="flex items-start gap-4">
-                    <div className="w-32 h-32 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-gray-50 flex flex-col items-center justify-center relative group">
-                        {form.imageUrl ? (
-                            <>
-                                <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                    <label className="cursor-pointer bg-white text-gray-800 p-2 rounded-lg shadow font-medium text-xs">
-                                        Đổi Ảnh
-                                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                                    </label>
-                                </div>
-                            </>
-                        ) : (
-                            <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-blue-500 transition-colors">
-                                <Upload className="w-8 h-8 mb-2" />
-                                <span className="text-xs font-medium text-center px-2">Tải ảnh lên</span>
-                                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                            </label>
-                        )}
-                        {uploadingImage && (
-                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                                <span className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                            </div>
-                        )}
-                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Ảnh phụ sản phẩm</label>
-                    <div className="flex flex-wrap gap-4 items-start">
-                        {(form.imageUrls || []).map((url, index) => (
-                            <div key={index} className="w-24 h-24 relative group border border-gray-200 rounded-lg overflow-hidden">
-                                <img src={url} alt={`Phụ ${index}`} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                    <button type="button" onClick={() => removeMultipleImage(index)} className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition">
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-
-                        <label className="cursor-pointer flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors text-gray-400 hover:text-blue-500 relative">
-                            <Upload className="w-6 h-6 mb-1" />
-                            <span className="text-[10px] font-medium text-center">Tải ảnh lên</span>
-                            <input type="file" accept="image/*" multiple onChange={handleMultipleImagesUpload} className="hidden" />
-                            {uploadingImages && (
-                                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
-                                    <span className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                                </div>
-                            )}
-                        </label>
+                {/* Section: Pricing & Stock */}
+                <div className="space-y-6">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Pricing & Inventory</h3>
+                  <div className="grid md:grid-cols-3 gap-8 p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
+                    <div>
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block text-indigo-600">Base Price (₫)</label>
+                      <input 
+                        type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                        className="w-full bg-white border-none rounded-2xl p-4 font-black text-2xl text-slate-800 shadow-inner"
+                      />
                     </div>
+                    <div>
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block text-rose-500">Sale Price (₫)</label>
+                      <input 
+                        type="number" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: e.target.value }))}
+                        className="w-full bg-white border-none rounded-2xl p-4 font-black text-2xl text-rose-600 shadow-inner"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Stock Level</label>
+                      <input 
+                        type="number" value={form.stock} disabled
+                        className="w-full bg-slate-200/50 border-none rounded-2xl p-4 font-black text-2xl text-slate-500 shadow-inner"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              {/* Mô tả */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mô tả chi tiết</label>
-                <textarea
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  rows="4"
-                  placeholder="Mô tả chất liệu, thiết kế, công dụng của sản phẩm..."
-                />
-              </div>
+                {/* Section: Description */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Description</h3>
+                  <textarea 
+                    value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    className="w-full bg-slate-50 border-none rounded-2xl p-6 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    rows={4}
+                    placeholder="Describe the athlete's experience with this gear..."
+                  />
+                </div>
 
-              </div>
+                {/* Section: Variations (RESTORED LOGIC) */}
+                <div className="p-8 bg-indigo-50/50 rounded-[2rem] border border-indigo-100 space-y-8">
+                  <div>
+                    <h3 className="text-lg font-bold text-indigo-900 mb-2">Quản lý biến thể</h3>
+                    <p className="text-sm text-indigo-600/70 mb-6">Thiết lập các tùy chọn về màu sắc và kích thước cho sản phẩm này.</p>
+                    
+                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Màu sắc (cách nhau bằng dấu phẩy)</label>
+                        <input 
+                          type="text" value={bulkColors} onChange={e => setBulkColors(e.target.value)}
+                          placeholder="VD: Đỏ, Xanh, Đen"
+                          className="w-full bg-white border border-indigo-100 rounded-xl p-3 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Kích thước (cách nhau bằng dấu phẩy)</label>
+                        <input 
+                          type="text" value={bulkSizes} onChange={e => setBulkSizes(e.target.value)}
+                          placeholder="VD: S, M, L, XL hoặc 39, 40, 41"
+                          className="w-full bg-white border border-indigo-100 rounded-xl p-3 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        />
+                      </div>
+                    </div>
 
-              {/* Buttons */}
-              <div className="flex gap-4 px-6 py-5 border-t border-gray-100 flex-shrink-0 bg-gray-50 mt-auto rounded-b-2xl">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="w-32 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-xl font-semibold hover:bg-gray-100 hover:text-black transition shadow-sm"
-                >
-                  Hủy bỏ
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const colors = bulkColors.split(',').map(s => s.trim()).filter(Boolean);
+                        const sizes = bulkSizes.split(',').map(s => s.trim()).filter(Boolean);
+                        if (colors.length === 0 || sizes.length === 0) {
+                          toast.warning("Vui lòng nhập cả Màu sắc và Kích thước!");
+                          return;
+                        }
+                        const current = JSON.parse(form.variations || '[]');
+                        const newVars = [];
+                        colors.forEach(c => {
+                          sizes.forEach(s => {
+                            if (!current.find(v => v.color === c && v.size === s)) {
+                              newVars.push({ color: c, size: s, price: form.price, stock: 0 });
+                            }
+                          });
+                        });
+                        setForm(f => ({ ...f, variations: JSON.stringify([...current, ...newVars]) }));
+                        toast.success(`Đã tạo thêm ${newVars.length} biến thể`);
+                      }}
+                      className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Tạo biến thể tự động
+                    </button>
+                  </div>
+
+                  {/* Variations Table */}
+                  <div className="bg-white rounded-2xl border border-indigo-100 overflow-hidden shadow-sm">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-slate-500 font-bold">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Màu sắc</th>
+                          <th className="px-4 py-3 text-left">Kích thước</th>
+                          <th className="px-4 py-3 text-left">Giá (₫)</th>
+                          <th className="px-4 py-3 text-left">Kho</th>
+                          <th className="px-4 py-3 text-center">Xóa</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(() => {
+                          const vars = JSON.parse(form.variations || '[]');
+                          if (vars.length === 0) return <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Chưa có biến thể nào được tạo...</td></tr>;
+                          
+                          return vars.map((v, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-4 py-3 font-bold text-slate-700">{v.color}</td>
+                              <td className="px-4 py-3 font-bold text-slate-700">{v.size}</td>
+                              <td className="px-4 py-3">
+                                <input 
+                                  type="number" value={v.price} 
+                                  onChange={e => {
+                                    const newVars = [...vars];
+                                    newVars[idx].price = e.target.value;
+                                    setForm(f => ({ ...f, variations: JSON.stringify(newVars) }));
+                                  }}
+                                  className="w-24 bg-slate-50 border-none rounded-lg p-1.5 font-bold text-indigo-600 focus:ring-1 focus:ring-indigo-500/20"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <input 
+                                  type="number" value={v.stock} 
+                                  onChange={e => {
+                                    const newVars = [...vars];
+                                    newVars[idx].stock = e.target.value;
+                                    setForm(f => ({ ...f, variations: JSON.stringify(newVars) }));
+                                  }}
+                                  className="w-20 bg-slate-50 border-none rounded-lg p-1.5 font-bold text-emerald-600 focus:ring-1 focus:ring-indigo-500/20"
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    const newVars = vars.filter((_, i) => i !== idx);
+                                    setForm(f => ({ ...f, variations: JSON.stringify(newVars) }));
+                                  }}
+                                  className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </form>
+
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+                <button onClick={() => setShowModal(false)} className="px-8 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 transition-all">
+                  Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving || uploadingImage}
-                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-blue-600/30"
+                <button 
+                  onClick={handleSave} 
+                  disabled={saving}
+                  className="flex-1 btn-primary !py-4 shadow-2xl shadow-indigo-600/20"
                 >
-                  <Check className="w-5 h-5" />
-                  {saving ? 'Đang lưu...' : editProduct ? 'Xác Nhận Cập Nhật' : 'Xác Nhận Thêm Mới'}
+                  {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                  {editProduct ? 'Save Changes' : 'Publish Product'}
                 </button>
               </div>
-            </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+
+// Internal icon for better viz
+const TrendingUp = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+    </svg>
+);
 
 export default AdminProducts;

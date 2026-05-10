@@ -1,18 +1,19 @@
-import { Outlet, Link, NavLink, useNavigate, Navigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, ShoppingBag, LogOut, FileText, Ticket } from 'lucide-react';
+import { 
+  LayoutDashboard, Users, ShoppingBag, LogOut, 
+  FileText, Ticket, MessageSquare, Bell, Search,
+  ChevronRight
+} from 'lucide-react';
 import { toast } from 'react-toastify';
+import NotificationDropdown from '../components/NotificationDropdown';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const AdminLayout = () => {
-  const { logout, token, isAdmin } = useAuth();
+  const { logout, token, isAdmin, role } = useAuth();
   const navigate = useNavigate();
 
-  // Guard: chưa đăng nhập → về trang login
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Guard: đăng nhập nhưng không phải ADMIN → về trang chủ
+  if (!token) return <Navigate to="/login" replace />;
   if (!isAdmin) {
     toast.error('Bạn không có quyền truy cập trang này!');
     return <Navigate to="/" replace />;
@@ -24,65 +25,115 @@ const AdminLayout = () => {
     navigate('/login');
   };
 
+  const menuItems = [
+    { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
+    { to: '/admin/products', icon: ShoppingBag, label: 'Sản phẩm' },
+    { to: '/admin/orders', icon: FileText, label: 'Đơn hàng' },
+    { to: '/admin/users', icon: Users, label: 'Khách hàng' },
+    { to: '/admin/coupons', icon: Ticket, label: 'Mã giảm giá' },
+    { to: '/admin/chat', icon: MessageSquare, label: 'Hỗ trợ & Chat' },
+  ];
+
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-800 text-white flex flex-col transition-all">
-        <div className="h-16 flex items-center justify-center border-b border-slate-700">
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-300">
-            S-Mart Admin
-          </h1>
+      <aside className="w-72 glass-dark text-white flex flex-col z-20 relative shadow-2xl">
+        <div className="h-20 flex items-center px-8 border-b border-slate-700/50 mb-4">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <span className="text-white font-black text-xl">S</span>
+            </div>
+            <h1 className="text-xl font-display font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+              S-MART <span className="text-indigo-400">PRO</span>
+            </h1>
+          </motion.div>
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          <NavLink end to="/admin" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg transition ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-slate-700 hover:text-white'}`}>
-            <LayoutDashboard className="w-5 h-5" />
-            Dashboard
-          </NavLink>
-          <NavLink to="/admin/products" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg transition ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-slate-700 hover:text-white'}`}>
-            <ShoppingBag className="w-5 h-5" />
-            Sản phẩm
-          </NavLink>
-          <NavLink to="/admin/orders" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg transition ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-slate-700 hover:text-white'}`}>
-            <FileText className="w-5 h-5" />
-            Đơn hàng
-          </NavLink>
-          <NavLink to="/admin/users" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg transition ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-slate-700 hover:text-white'}`}>
-            <Users className="w-5 h-5" />
-            Khách hàng
-          </NavLink>
-          <NavLink to="/admin/coupons" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg transition ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-slate-700 hover:text-white'}`}>
-            <Ticket className="w-5 h-5" />
-            Mã giảm giá
-          </NavLink>
-          <NavLink to="/admin/chat" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg transition ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-300 hover:bg-slate-700 hover:text-white'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-            Hỗ trợ & Chat
-          </NavLink>
+
+        {/* Admin Profile Mini */}
+        <div className="px-6 mb-8">
+          <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/30 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-white shadow-inner">
+              A
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white truncate">Administrator</p>
+              <p className="text-xs text-slate-400 uppercase tracking-widest">{role}</p>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+          {menuItems.map((item) => (
+            <NavLink 
+              key={item.to}
+              end={item.end}
+              to={item.to} 
+              className={({ isActive }) => `
+                group flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 relative
+                ${isActive 
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}
+              `}
+            >
+              <div className="flex items-center gap-3.5">
+                <item.icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110`} />
+                <span className="font-medium tracking-wide">{item.label}</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-1`} />
+            </NavLink>
+          ))}
         </nav>
-        <div className="p-4 border-t border-slate-700">
+
+        <div className="p-6 mt-auto border-t border-slate-700/50">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full text-red-400 hover:bg-slate-700 hover:text-red-300 rounded-lg transition"
+            className="flex items-center gap-3 px-4 py-3.5 w-full text-slate-400 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all duration-300 group"
           >
-            <LogOut className="w-5 h-5" />
-            Đăng xuất
+            <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+            <span className="font-medium">Đăng xuất</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Header */}
-        <header className="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-800">Cổng Quản Trị Hệ Thống</h2>
-          <div className="flex items-center gap-4">
-            <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">ADMIN ROLE</span>
+      <main className="flex-1 flex flex-col relative z-10">
+        {/* Header Overlay (Dynamic) */}
+        <header className="h-20 glass sticky top-0 flex items-center justify-between px-10 z-30 shadow-sm border-b border-slate-200/50">
+          <div className="flex items-center gap-4 flex-1">
+            <div className="relative max-w-md w-full group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Tìm kiếm nhanh hệ thống..." 
+                className="w-full bg-slate-100/50 border-none rounded-full py-2.5 pl-11 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all shadow-inner"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-5">
+            <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
+            <NotificationDropdown token={token} />
+            <div className="flex flex-col items-end">
+              <span className="text-xs font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded">Hệ Thống</span>
+              <span className="text-[10px] text-slate-400 font-medium">v1.2.0 - Premium</span>
+            </div>
           </div>
         </header>
 
-        {/* View Routing */}
-        <div className="flex-1 overflow-auto p-8 bg-gray-50">
-          <Outlet />
+        {/* View Routing with Animation */}
+        <div className="flex-1 overflow-auto bg-slate-50/50 custom-scrollbar">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="p-10"
+          >
+            <Outlet />
+          </motion.div>
         </div>
       </main>
     </div>
@@ -90,4 +141,3 @@ const AdminLayout = () => {
 };
 
 export default AdminLayout;
-

@@ -25,15 +25,7 @@ const NotificationDropdown = ({ token }) => {
           socket.on('receiveNotification', (newNotif) => {
              const notifObj = typeof newNotif === 'string' ? { id: Date.now(), content: newNotif, isRead: false, createdAt: new Date() } : newNotif;
 
-             toast.info(
-               <div>
-                 <p className="font-bold">Thông báo</p>
-                 <p className="text-sm">{notifObj.content}</p>
-                 {notifObj.link && <p className="text-xs text-blue-500 mt-1">Nhấn để xem</p>}
-               </div>,
-               { onClick: () => { if (notifObj.link) navigate(notifObj.link); } }
-             );
-
+             // toast.info removed per user request to hide blue toasts on screen
              setNotifications((prev) => [notifObj, ...prev]);
           });
 
@@ -89,6 +81,15 @@ const NotificationDropdown = ({ token }) => {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  // Decide where to go for "View all" based on user role inside token
+  let isAdmin = false;
+  try {
+    if (token) {
+      const decoded = jwtDecode(token);
+      isAdmin = decoded.role === 'ADMIN';
+    }
+  } catch (e) {}
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -129,6 +130,14 @@ const NotificationDropdown = ({ token }) => {
                </ul>
             )}
           </div>
+          {isAdmin && (
+            <div
+              className="p-3 border-t bg-gray-50 text-center text-sm text-blue-600 font-semibold cursor-pointer hover:bg-blue-100 transition"
+              onClick={() => { setIsOpen(false); navigate('/admin/notifications'); }}
+            >
+              Xem tất cả thông báo
+            </div>
+          )}
         </div>
       )}
     </div>

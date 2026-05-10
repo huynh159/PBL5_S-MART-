@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -21,6 +21,7 @@ enum UserStatus {
 
 enum OrderStatus {
   PENDING
+  PAID
   CONFIRMED
   SHIPPING
   DELIVERED
@@ -73,6 +74,7 @@ model Coupon {
   discountPercent Int      @map("discount_percent")
   expiryDate      DateTime @map("expiry_date") @db.Date
   isActive        Boolean  @default(true) @map("is_active")
+  quantity        Int      @default(100)
   orders          Order[]
 
   @@map("coupons")
@@ -91,6 +93,8 @@ model Product {
   status        String         @default("ACTIVE") @db.VarChar(20)
   variations    String?        @db.Text // Stored as JSON string
   categoryId    Int            @map("category_id")
+  vectorData    String?        @map("vector_data") @db.Text
+  searchText    String?        @map("search_text") @db.Text
   category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images        ProductImage[]
   orderItems    OrderItem[]

@@ -24,12 +24,13 @@ const AdminUsers = () => {
   }, []);
 
   const handleToggleLock = async (user) => {
-    const action = user.isActive ? 'khóa' : 'mở khóa';
+    const isCurrentlyActive = user.status === 'ACTIVE';
+    const action = isCurrentlyActive ? 'khóa' : 'mở khóa';
     if (!window.confirm(`Xác nhận ${action} tài khoản ${user.email}?`)) return;
     try {
       await adminService.toggleLockUser(user.id);
       setUsers(prev =>
-        prev.map(u => u.id === user.id ? { ...u, isActive: !u.isActive } : u)
+        prev.map(u => u.id === user.id ? { ...u, status: isCurrentlyActive ? 'LOCKED' : 'ACTIVE' } : u)
       );
       toast.success(`Đã ${action} tài khoản thành công!`);
     } catch (err) {
@@ -99,9 +100,9 @@ const AdminUsers = () => {
                 </td>
                 <td className="px-6 py-4 text-center">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    user.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                   }`}>
-                    {user.isActive ? 'Hoạt động' : 'Đã khóa'}
+                    {user.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center text-gray-500 text-xs">
@@ -113,13 +114,13 @@ const AdminUsers = () => {
                       <button
                         onClick={() => handleToggleLock(user)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                          user.isActive
+                          user.status === 'ACTIVE'
                             ? 'bg-red-100 text-red-600 hover:bg-red-200'
                             : 'bg-green-100 text-green-600 hover:bg-green-200'
                         }`}
                       >
-                        {user.isActive ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
-                        {user.isActive ? 'Khóa TK' : 'Mở Khóa'}
+                        {user.status === 'ACTIVE' ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                        {user.status === 'ACTIVE' ? 'Khóa TK' : 'Mở Khóa'}
                       </button>
                     )}
                   </div>

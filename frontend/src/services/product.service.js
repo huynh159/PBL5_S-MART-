@@ -13,6 +13,14 @@ const productService = {
     return response.data;
   },
 
+  // AI-powered vector search
+  searchByAI: async (query, limit = 12) => {
+    const response = await api.get('/products/search/ai', {
+      params: { q: query, limit }
+    });
+    return response.data;
+  },
+
   getProductById: async (id) => {
     const response = await api.get(`/products/${id}`);
     return response.data;
@@ -70,6 +78,18 @@ const productService = {
 
   getSimilarProducts: async (id) => {
     const response = await api.get(`/products/${id}/recommend`);
+    return response.data;
+  },
+
+  // Admin: Generate embeddings cho tất cả sản phẩm
+  generateAllEmbeddings: async () => {
+    const response = await api.post('/products/embed-all');
+    return response.data;
+  },
+
+  // Admin: Kiểm tra trạng thái embedding
+  getEmbedStatus: async () => {
+    const response = await api.get('/products/embed-status');
     return response.data;
   }
 };

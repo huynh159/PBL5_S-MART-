@@ -192,7 +192,9 @@ const Checkout = () => {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (e) => {
+    if (e) e.preventDefault();
+
     if (!phone || !street || !selectedWard || !selectedDistrict || !selectedProvince) {
       toast.error('Vui lòng điền đầy đủ số điện thoại và địa chỉ giao hàng!');
       return;

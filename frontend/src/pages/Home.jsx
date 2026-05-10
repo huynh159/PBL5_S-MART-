@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  Search, ChevronLeft, ChevronRight, Sparkles, 
+  Zap, Clock, ShoppingBag, Trophy, Activity, 
+  Flame, Filter, ArrowRight, ShoppingCart
+} from 'lucide-react';
 import productService from '../services/product.service';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Home = () => {
   const [searchParams] = useSearchParams();
@@ -16,39 +21,40 @@ const Home = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
+  const [aiMode, setAiMode] = useState(false);
+  const [searchMeta, setSearchMeta] = useState(null);
   const PAGE_SIZE = 12;
   const navigate = useNavigate();
 
-  // Load categories
   useEffect(() => {
     productService.getCategories()
       .then(data => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]));
   }, []);
 
-  // Sync URL search param -> state
   useEffect(() => {
     setSearch(urlSearch);
     setSearchInput(urlSearch);
     setCurrentPage(0);
   }, [urlSearch]);
 
-  // Debounce search input
   useEffect(() => {
+    if (aiMode) return;
     const timer = setTimeout(() => {
       if (search !== searchInput) {
         setSearch(searchInput);
         setCurrentPage(0);
       }
-    }, 500); // 500ms debounce
+    }, 500);
     return () => clearTimeout(timer);
-  }, [searchInput, search]);
+  }, [searchInput, search, aiMode]);
 
-  // Load products
   useEffect(() => {
+    if (aiMode && search) return;
     const fetchProducts = async () => {
       try {
         setLoading(true);
+        setSearchMeta(null);
         const data = await productService.getProducts(currentPage, PAGE_SIZE, search, selectedCategory);
         setProducts(data.content || data);
         setTotalPages(data.totalPages || 1);
@@ -61,175 +67,345 @@ const Home = () => {
       }
     };
     fetchProducts();
-  }, [search, selectedCategory, currentPage]);
+  }, [search, selectedCategory, currentPage, aiMode]);
+
+  const handleAISearch = useCallback(async (queryText) => {
+    if (!queryText || queryText.trim().length === 0) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSearchMeta(null);
+      const data = await productService.searchByAI(queryText.trim());
+      setProducts(data.content || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalElements(data.totalElements || 0);
+      setSearchMeta(data.searchMeta || null);
+    } catch (err) {
+      setError('AI Search thất bại. Vui lòng thử lại.');
+      console.error('AI Search error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    setSearch(searchInput);
-    setCurrentPage(0);
+    const trimmed = searchInput.trim();
+    if (aiMode && trimmed) {
+      setSearch(trimmed);
+      setCurrentPage(0);
+      handleAISearch(trimmed);
+    } else {
+      setSearch(trimmed);
+      setCurrentPage(0);
+    }
   };
 
   const handleCategoryClick = (catId) => {
     setSelectedCategory(catId === selectedCategory ? null : catId);
     setCurrentPage(0);
+    if (aiMode) {
+      setAiMode(false);
+      setSearchMeta(null);
+    }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
   };
 
   return (
-    <div>
-      {/* Hero Banner */}
-      <section className="bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 rounded-2xl mb-10 flex h-72 items-center overflow-hidden relative shadow-xl">
-        <div className="z-10 p-10 text-white max-w-lg">
-          <p className="text-blue-200 text-sm font-medium mb-2 uppercase tracking-wide">S-Mart Sport Shop</p>
-          <h1 className="text-4xl font-extrabold mb-3 leading-tight">Mừng Xuân Đón Lộc!</h1>
-          <p className="text-blue-100 text-lg mb-6">Giảm đến 50% cho tất cả dụng cụ thể thao. Nhanh tay săn deal hôm nay!</p>
-          <button
-            onClick={() => { setSearch(''); setSearchInput(''); setSelectedCategory(null); navigate('/'); }}
-            className="bg-yellow-400 text-slate-800 font-bold px-7 py-3 rounded-full hover:bg-yellow-300 transition shadow-lg"
+    <motion.div initial="hidden" animate="visible" variants={containerVariants} className="space-y-16 pb-20">
+      
+      {/* Hero Section - Redesigned */}
+      <section className="relative rounded-[2.5rem] overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-950 via-indigo-900/90 to-transparent z-10" />
+        <img 
+          src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=2070&auto=format&fit=crop" 
+          alt="Hero Background" 
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+        />
+        <div className="relative z-20 p-12 lg:p-20 flex flex-col items-start max-w-3xl space-y-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -30 }} 
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20"
           >
-            Mua Sắm Ngay 🛒
-          </button>
+            <Flame className="w-4 h-4 text-amber-400" />
+            <span className="text-white text-xs font-black uppercase tracking-[0.2em]">New Season Arrival</span>
+          </motion.div>
+          
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-5xl lg:text-7xl font-display font-black text-white leading-tight tracking-tighter"
+          >
+            NÂNG TẦM <br />
+            <span className="text-indigo-400 italic">SỨC MẠNH</span> THỂ THAO
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-lg text-slate-300 font-medium max-w-md leading-relaxed"
+          >
+            Khám phá bộ sưu tập trang bị thể thao cao cấp nhất năm 2026. Hiệu suất vượt trội, phong cách đẳng cấp.
+          </motion.p>
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="flex flex-wrap gap-4"
+          >
+            <button className="btn-accent !px-10 !py-4 text-lg shadow-2xl shadow-amber-500/30">
+              Mua Sắm Ngay <ShoppingBag className="w-5 h-5" />
+            </button>
+            <button className="px-10 py-4 rounded-full border border-white/30 text-white font-bold hover:bg-white hover:text-indigo-900 transition-all">
+              Bộ Sưu Tập
+            </button>
+          </motion.div>
         </div>
-        <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-indigo-600/60 to-transparent" />
-        <div className="absolute bottom-0 right-8 text-9xl opacity-10 select-none">⚽🏀🎾</div>
+        
+        {/* Abstract Floating Stats */}
+        <div className="absolute right-20 bottom-20 z-20 hidden lg:flex flex-col gap-4">
+          <div className="glass p-6 rounded-3xl flex items-center gap-4 animate-bounce-slow">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg">
+              <Trophy className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-bold uppercase">Trusted By</p>
+              <p className="text-xl font-black text-slate-900">10k+ Athletes</p>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* Search Bar */}
-      <form onSubmit={handleSearch} className="mb-8">
-        <div className="relative max-w-2xl mx-auto flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchInput}
-              onChange={e => {
-                setSearchInput(e.target.value);
-                // Tự động tìm kiếm sau khi gõ (debounce nhẹ)
-              }}
-              placeholder="Tìm kiếm sản phẩm thể thao..."
-              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-400 outline-none text-gray-700 bg-white"
-            />
-            <Search className="absolute left-4 top-4 h-5 w-5 text-gray-400" />
-          </div>
-          <button
-            type="submit"
-            className="px-6 py-3.5 bg-blue-600 text-white font-medium rounded-2xl hover:bg-blue-700 transition shadow-sm whitespace-nowrap"
-          >
-            Tìm kiếm
-          </button>
-        </div>
-      </form>
+      {/* Brands Bar */}
+      <section className="py-8 border-y border-slate-100 flex items-center justify-around overflow-hidden gap-12 opacity-40 hover:opacity-100 transition-opacity">
+        {['NIKE', 'ADIDAS', 'PUMA', 'UNDER ARMOUR', 'REEBOK', 'ASICS'].map(brand => (
+          <span key={brand} className="text-2xl font-black tracking-tighter text-slate-400">{brand}</span>
+        ))}
+      </section>
 
-      {/* Category Filter */}
-      {categories.length > 0 && (
-        <div className="flex gap-2 flex-wrap mb-8">
-          <button
-            onClick={() => { setSelectedCategory(null); setCurrentPage(0); }}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-              !selectedCategory ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+      {/* Search & Categories Bar */}
+      <section className="space-y-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-display font-black text-slate-800 tracking-tight">Khám Phá Sản Phẩm</h2>
+            <p className="text-slate-500 font-medium">Tìm thấy bộ trang bị phù hợp nhất với mục tiêu của bạn.</p>
+          </div>
+          
+          <form onSubmit={handleSearch} className="relative w-full max-w-xl group">
+            <div className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors ${aiMode ? 'text-indigo-600' : 'text-slate-400 group-focus-within:text-indigo-600'}`}>
+              {aiMode ? <Sparkles className="w-5 h-5 animate-pulse" /> : <Search className="w-5 h-5" />}
+            </div>
+            <input 
+              type="text" 
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              placeholder={aiMode ? "AI đang lắng nghe bạn..." : "Bạn đang tìm giày, bóng, hay tạ?"}
+              className={`w-full bg-white border-none rounded-2xl py-4 pl-14 pr-24 shadow-lg shadow-slate-100/50 outline-none focus:ring-2 transition-all font-medium ${
+                aiMode ? 'ring-indigo-500/30' : 'focus:ring-indigo-500/20'
+              }`}
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setAiMode(!aiMode)}
+                className={`p-2 rounded-xl transition-all ${aiMode ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                title="AI Search Mode"
+              >
+                <Sparkles className="w-4 h-4" />
+              </button>
+              <button type="submit" className="bg-slate-900 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors">
+                Tìm
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Categories Pills */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-4 custom-scrollbar no-scrollbar">
+          <button 
+            onClick={() => setSelectedCategory(null)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl whitespace-nowrap font-bold text-sm transition-all ${
+              !selectedCategory ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
             }`}
           >
-            Tất cả
+            <Activity className="w-4 h-4" /> Tất Cả
           </button>
           {categories.map(cat => (
-            <button
+            <button 
               key={cat.id}
               onClick={() => handleCategoryClick(cat.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                selectedCategory === cat.id ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              className={`flex items-center gap-2 px-6 py-3 rounded-2xl whitespace-nowrap font-bold text-sm transition-all ${
+                selectedCategory === cat.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
               }`}
             >
               {cat.name}
             </button>
           ))}
         </div>
-      )}
+      </section>
 
-      {/* Section Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">
-          {search ? `Kết quả cho "${search}"${selectedCategory ? ' trong danh mục này' : ''}` : selectedCategory ? 'Sản phẩm theo danh mục' : 'Sản Phẩm Nổi Bật'}
-          {!loading && <span className="ml-2 text-base font-normal text-gray-400">({totalElements || products.length} sản phẩm)</span>}
-        </h2>
-      </div>
-
-      {/* Loading & Error */}
-      {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-gray-100 rounded-2xl h-72 animate-pulse" />
-          ))}
+      {/* Main Product Grid */}
+      <section className="space-y-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              {products.length}
+            </div>
+            <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest">Sản Phẩm Đề Xuất</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors">
+              <Filter className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      )}
-      {!loading && error && <p className="text-red-500 text-center py-8">{error}</p>}
 
-      {/* Product Grid */}
-      {!loading && !error && (
-        products.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <Link
-                key={product.id}
-                to={`/product/${product.id}`}
-                className="bg-white rounded-2xl shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100"
-              >
-                {/* Product Image */}
-                <div className="h-48 bg-gray-50 overflow-hidden">
-                  <img
-                    src={product.imageUrl || `https://picsum.photos/seed/${product.id}/300/200`}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={e => { e.target.src = `https://picsum.photos/seed/${product.id}/300/200`; }}
-                  />
-                </div>
-                {/* Product Info */}
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-800 line-clamp-2 text-sm leading-snug">{product.name}</h3>
-                  <div className="flex items-center justify-between mt-3">
-                    <p className="text-blue-600 font-bold text-base">
-                      {product.price ? product.price.toLocaleString('vi-VN') : '0'} ₫
-                    </p>
-                    {product.stock !== undefined && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        product.stock > 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                      }`}>
-                        {product.stock > 0 ? 'Còn hàng' : 'Hết hàng'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="space-y-4">
+                <div className="aspect-[4/5] bg-slate-100 animate-pulse rounded-3xl" />
+                <div className="h-4 bg-slate-100 animate-pulse rounded w-3/4" />
+                <div className="h-4 bg-slate-100 animate-pulse rounded w-1/4" />
+              </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 text-gray-400">
-            <Search className="w-12 h-12 mx-auto mb-4 opacity-40" />
-            <p className="text-lg">Không tìm thấy sản phẩm phù hợp.</p>
-          </div>
-        )
-      )}
+          <motion.div 
+            initial="hidden" 
+            animate="visible" 
+            variants={containerVariants}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+          >
+            <AnimatePresence mode='popLayout'>
+              {products.map((product) => (
+                <motion.div 
+                  layout
+                  key={product.id}
+                  variants={itemVariants}
+                  whileHover={{ y: -8 }}
+                  className="group relative flex flex-col h-full"
+                >
+                  <Link to={`/product/${product.id}`} className="block flex-1">
+                    <div className="aspect-[4/5] rounded-[2rem] overflow-hidden bg-slate-100 relative mb-6">
+                      <img 
+                        src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/500`}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        onError={e => { e.target.src = `https://picsum.photos/seed/${product.id}/400/500`; }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      
+                      {/* Floating Badge */}
+                      {product.similarity ? (
+                        <div className="absolute top-4 right-4 z-20">
+                          <span className="bg-indigo-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-xl">
+                            {Math.round(product.similarity * 100)}% MATCH
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-xl hover:bg-indigo-600 hover:text-white transition-all">
+                            <ShoppingCart className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                      
+                      <div className="absolute bottom-6 left-6 right-6 z-20 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                        <button className="w-full py-3 bg-white text-slate-900 font-bold rounded-xl text-sm shadow-xl">
+                          Chi Tiết Sản Phẩm
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1 px-2">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Premium Sportwear</p>
+                      <h4 className="text-lg font-bold text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{product.name}</h4>
+                      <p className="text-xl font-display font-black text-slate-900">
+                        {product.price ? product.price.toLocaleString('vi-VN') : '0'} ₫
+                      </p>
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
 
-      {/* Pagination */}
+        {/* Empty State */}
+        {!loading && products.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+              <Search className="w-12 h-12 text-slate-200" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-800">Oops! Không tìm thấy gì cả</h3>
+            <p className="text-slate-500 mt-2 max-w-xs">Hãy thử đổi từ khóa hoặc bộ lọc để tìm sản phẩm ưng ý nhé.</p>
+          </div>
+        )}
+      </section>
+
+      {/* Pagination - Redesigned */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-10">
-          <button
+        <section className="flex items-center justify-center gap-2 pt-10 border-t border-slate-100">
+          <button 
             onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
             disabled={currentPage === 0}
-            className="flex items-center gap-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-all"
           >
-            <ChevronLeft className="w-4 h-4" /> Trước
+            <ChevronLeft className="w-5 h-5" />
           </button>
-          <span className="text-gray-600 font-medium">
+          <div className="px-6 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center font-bold text-slate-800 text-sm">
             Trang {currentPage + 1} / {totalPages}
-          </span>
-          <button
+          </div>
+          <button 
             onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
             disabled={currentPage >= totalPages - 1}
-            className="flex items-center gap-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-all"
           >
-            Sau <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
-        </div>
+        </section>
       )}
-    </div>
+
+      {/* Newsletter Section */}
+      <section className="bg-indigo-600 rounded-[3rem] p-12 lg:p-20 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-700 rounded-full -ml-32 -mb-32 blur-3xl opacity-50" />
+        
+        <div className="relative z-10 grid lg:grid-cols-2 items-center gap-12">
+          <div className="space-y-6">
+            <h2 className="text-4xl lg:text-5xl font-display font-black text-white leading-tight">
+              ĐỪNG BỎ LỠ <br /> CƠ HỘI NÀO
+            </h2>
+            <p className="text-indigo-100 text-lg">Đăng ký nhận tin để là người đầu tiên biết về các bộ sưu tập giới hạn và ưu đãi độc quyền.</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <input 
+              type="email" 
+              placeholder="Nhập email của bạn..." 
+              className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-6 py-4 text-white placeholder-indigo-200 outline-none focus:ring-2 focus:ring-white/30 transition-all"
+            />
+            <button className="bg-white text-indigo-600 px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-amber-400 hover:text-slate-900 transition-all shadow-2xl">
+              Đăng Ký Ngay
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </motion.div>
   );
 };
 

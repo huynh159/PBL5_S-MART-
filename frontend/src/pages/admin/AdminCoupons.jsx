@@ -15,6 +15,7 @@ const AdminCoupons = () => {
     code: '',
     discountPercent: 0,
     expiryDate: '',
+    quantity: 100,
     isActive: true
   });
 
@@ -40,7 +41,8 @@ const AdminCoupons = () => {
       setFormData({
         code: coupon.code,
         discountPercent: coupon.discountPercent,
-        expiryDate: coupon.expiryDate ? coupon.expiryDate : '',
+        expiryDate: coupon.expiryDate ? coupon.expiryDate.split('T')[0] : '',
+        quantity: coupon.quantity || 0,
         isActive: coupon.isActive
       });
     } else {
@@ -49,6 +51,7 @@ const AdminCoupons = () => {
         code: '',
         discountPercent: 10,
         expiryDate: '',
+        quantity: 100,
         isActive: true
       });
     }
@@ -123,6 +126,7 @@ const AdminCoupons = () => {
                   <th className="p-4 font-semibold border-b">Mã CODE</th>
                   <th className="p-4 font-semibold border-b">Giảm (%)</th>
                   <th className="p-4 font-semibold border-b">Ngày hết hạn</th>
+                  <th className="p-4 font-semibold border-b text-center">Số lượng</th>
                   <th className="p-4 font-semibold border-b">Trạng thái</th>
                   <th className="p-4 font-semibold border-b text-center rounded-tr-xl">Thao tác</th>
                 </tr>
@@ -141,6 +145,9 @@ const AdminCoupons = () => {
                     </td>
                     <td className="p-4 text-gray-600">
                       {c.expiryDate ? new Date(c.expiryDate).toLocaleDateString('vi-VN') : 'Không giới hạn'}
+                    </td>
+                    <td className="p-4 text-center font-semibold text-gray-700">
+                      {c.quantity}
                     </td>
                     <td className="p-4">
                       {c.isActive ? (
@@ -225,6 +232,18 @@ const AdminCoupons = () => {
                   required
                   value={formData.expiryDate}
                   onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
+                  className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng lượt sử dụng *</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({...formData, quantity: Number(e.target.value)})}
                   className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500"
                 />
               </div>

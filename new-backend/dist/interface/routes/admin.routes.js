@@ -68,10 +68,14 @@ router.put('/users/:id/toggle-lock', auth_middleware_1.authMiddleware, auth_midd
         const id = parseInt(req.params.id);
         const user = await PrismaClient_1.prisma.user.findUnique({ where: { id } });
         if (!user) {
-            res.status(404).json({ error: 'User không tồn tại' });
+            res.status(404).json({ error: 'User khng t“n ti' });
             return;
         }
-        const updated = await PrismaClient_1.prisma.user.update({ where: { id }, data: { status: user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE' } });
+        const newStatus = user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE';
+        const updated = await PrismaClient_1.prisma.user.update({ where: { id }, data: { status: newStatus } });
+        if (newStatus === 'LOCKED') {
+            (0, socketService_1.getIO)().to(`user_${id}`).emit('forceLogout', { message: 'Tài khoản của bạn đã bị khóa bởi Admin!' });
+        }
         res.json(updated);
     }
     catch (e) {
@@ -149,8 +153,36 @@ router.get('/coupons', auth_middleware_1.authMiddleware, auth_middleware_1.admin
 // POST /api/admin/coupons
 router.post('/coupons', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
     try {
-        const coupon = await PrismaClient_1.prisma.coupon.create({ data: req.body });
+        const data = { ...req.body };
+        if (data.expiryDate)
+            data.expiryDate = new Date(data.expiryDate);
+        if (data.discountPercent)
+            data.discountPercent = Number(data.discountPercent);
+        let existing = await PrismaClient_1.prisma.coupon.findUnique({ where: { code: data.code } });
+        if (existing) {
+            res.status(400).json({ error: 'Mã giảm giá đã tồn tại!' });
+            return;
+        }
+        const coupon = await PrismaClient_1.prisma.coupon.create({ data });
         res.status(201).json(coupon);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// PUT /api/admin/coupons/:id
+router.put('/coupons/:id', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const data = { ...req.body };
+        if (data.expiryDate)
+            data.expiryDate = new Date(data.expiryDate);
+        if (data.discountPercent)
+            data.discountPercent = Number(data.discountPercent);
+        // Remove `id` just in case it's passed in body to prevent update issues
+        delete data.id;
+        const updated = await PrismaClient_1.prisma.coupon.update({ where: { id }, data });
+        res.json(updated);
     }
     catch (e) {
         res.status(500).json({ error: e.message });

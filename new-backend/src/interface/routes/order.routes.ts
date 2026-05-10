@@ -13,14 +13,17 @@ router.post('/calculate-fee', authMiddleware, async (req: AuthRequest, res: Resp
         let estimatedTime = '2-3 ngày';
 
         const ghtkToken = process.env.GHTK_TOKEN;
+        const pickProvince = process.env.GHTK_PICK_PROVINCE || 'Đà Nẵng';
+        const pickDistrict = process.env.GHTK_PICK_DISTRICT || 'Hải Châu';
+        const pickWard = process.env.GHTK_PICK_WARD || 'Phường Thạch Thang';
 
         if (ghtkToken && province && district) {
             try {
                 // Gọi API GHTK tĩnh phí vận chuyển
                 const url = new URL('https://services.giaohangtietkiem.vn/services/shipment/fee');
-                url.searchParams.append('pick_province', 'Đà Nẵng'); // Setup kho ở Đà Nẵng
-                url.searchParams.append('pick_district', 'Hải Châu');
-                url.searchParams.append('pick_ward', 'Phường Thạch Thang');
+                url.searchParams.append('pick_province', pickProvince);
+                url.searchParams.append('pick_district', pickDistrict);
+                url.searchParams.append('pick_ward', pickWard);
                 url.searchParams.append('province', province);
                 url.searchParams.append('district', district);
                 url.searchParams.append('ward', ward || '');
@@ -99,7 +102,8 @@ router.put('/:id/cancel', authMiddleware, async (req: AuthRequest, res: Response
         }
 
         const status = String(order.status).toUpperCase();
-        if (!['PENDING', 'CONFIRMED'].includes(status)) {
+        // Chỉ cấm hủy khi đang giao (SHIPPING) trở đi
+        if (['SHIPPING', 'DELIVERED', 'CANCELLED'].includes(status)) {
             res.status(400).json({ message: 'Không thể hủy đơn hàng ở trạng thái hiện tại' });
             return;
         }
@@ -107,8 +111,9 @@ router.put('/:id/cancel', authMiddleware, async (req: AuthRequest, res: Response
         const updated = await prisma.$transaction(async (tx) => {
             // Hoàn kho
             for (const item of order.orderItems) {
-                const product = await tx.product.findUnique({ where: { id: item.productId } });
-                if (!product) continue;
+                const productList: any[] = await tx.$queryRaw`SELECT * FROM "products" WHERE "id" = ${item.productId} FOR UPDATE`;
+                if (!productList || productList.length === 0) continue;
+                const product = productList[0];
 
                 let updatedVariations = product.variations;
                 if (product.variations && (item.color || item.size)) {
@@ -127,9 +132,17 @@ router.put('/:id/cancel', authMiddleware, async (req: AuthRequest, res: Response
                 await tx.product.update({
                     where: { id: item.productId },
                     data: {
-                        stock: product.stock + item.quantity,
+                        stock: { increment: item.quantity },
                         variations: updatedVariations
                     }
+                });
+            }
+
+            // Hoàn mã giảm giá nếu có
+            if (order.couponId) {
+                await tx.coupon.update({
+                    where: { id: order.couponId },
+                    data: { quantity: { increment: 1 } }
                 });
             }
 
@@ -213,10 +226,12 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
         let couponDiscountPercent = 0;
         if (couponCode) {
             const coupon = await prisma.coupon.findUnique({ where: { code: couponCode } });
-            if (coupon?.isActive && coupon.expiryDate >= new Date()) {
-                couponId = coupon.id;
-                couponDiscountPercent = coupon.discountPercent;
+            if (!coupon || !coupon.isActive || coupon.expiryDate < new Date() || coupon.quantity <= 0) {
+                res.status(400).json({ message: 'Mã giảm giá không hợp lệ, đã hết hạn hoặc hết số lượng' });
+                return;
             }
+            couponId = coupon.id;
+            couponDiscountPercent = coupon.discountPercent;
         }
 
         // Tạo Order kèm OrderItems (Prisma transaction)
@@ -247,7 +262,8 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
 
             const computedTotal = Math.max(0, subtotal - Math.round(subtotal * couponDiscountPercent / 100));
             const finalShippingFee = typeof shippingFee === 'number' ? shippingFee : 0;
-            const finalTotal = typeof total === 'number' && total > 0 ? total : computedTotal + finalShippingFee;
+            // FIXED SECURITY VULNERABILITY: Do not trust `total` from frontend! Always calculate backend-side.
+            const finalTotal = computedTotal + finalShippingFee;
 
             const newOrder = await tx.order.create({
                 data: {
@@ -263,17 +279,26 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
                 }
             });
 
+            // Giảm số lượng mã giảm giá
+            if (couponId) {
+                await tx.coupon.update({
+                    where: { id: couponId },
+                    data: { quantity: { decrement: 1 } }
+                });
+            }
+
             for (const item of resolvedItems) {
-                // Deduct stock
-                const product = await tx.product.findUnique({ where: { id: item.productId } });
-                if (!product) throw new Error(`Sản phẩm #${item.productId} không tồn tại`);
-                
+                // Khóa dòng sản phẩm để tránh tranh chấp (Race Condition)
+                const productList: any[] = await tx.$queryRaw`SELECT * FROM "products" WHERE "id" = ${item.productId} FOR UPDATE`;
+                if (!productList || productList.length === 0) throw new Error(`Sản phẩm #${item.productId} không tồn tại`);
+                const product = productList[0];
+
                 let updatedVariations = product.variations;
                 if (product.variations) {
                     const vars = JSON.parse(product.variations);
                     const varIndex = vars.findIndex((v: any) => v.color === item.color && v.size === item.size);
                     if (varIndex !== -1) {
-                        if (vars[varIndex].stock < item.quantity) throw new Error(`Biến thể sản phẩm ${product.name} đã hết hàng`);
+                        if (vars[varIndex].stock < item.quantity) throw new Error(`Biến thể ${item.color}/${item.size} của ${product.name} đã hết hàng`);
                         vars[varIndex].stock -= item.quantity;
                         updatedVariations = JSON.stringify(vars);
                     }
@@ -281,10 +306,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
                 
                 if (product.stock < item.quantity) throw new Error(`Sản phẩm ${product.name} đã hết hàng`);
 
+                // Thực hiện trừ kho (Giữ chỗ)
                 await tx.product.update({
                     where: { id: item.productId },
                     data: { 
-                        stock: product.stock - item.quantity,
+                        stock: { decrement: item.quantity },
                         variations: updatedVariations
                     }
                 });
@@ -301,7 +327,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
                 });
             }
 
-            // Nếu checkout từ giỏ hàng -> chỉ xóa item được chọn
+            // Xóa các sản phẩm đã đặt khỏi giỏ hàng
             if (Array.isArray(cartItemIds) && cartItemIds.length > 0) {
                 await tx.cartItem.deleteMany({
                     where: {
@@ -310,21 +336,47 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
                     }
                 });
             }
+
             return newOrder;
         });
 
-        const newNotif = await prisma.notification.create({
-            data: {
-                userId: req.user!.userId,
-                content: `Đơn hàng #${order.id} đã được đặt thành công! Cảm ơn bạn.`,
-                link: '/orders'
-            }
-        });
 
-        // Gửi thông báo real-time qua room để hỗ trợ đa luồng
-        getIO().to(`user_${req.user!.userId}`).emit('receiveNotification', newNotif);
+        // ---- THÊM THÔNG BÁO CHO QUẢN TRỊ VIÊN VÀO DATABASE ----
+        if (paymentMethod !== 'VNPAY') {
+            // Thông báo cho User
+            const userNotif = await prisma.notification.create({
+                data: {
+                    userId: req.user!.userId,
+                    content: `Đơn hàng #${order.id} đã được đặt thành công! Cảm ơn bạn.`,
+                    link: '/orders'
+                }
+            });
+            getIO().to(`user_${req.user!.userId}`).emit('receiveNotification', userNotif);
+
+            const managers = await prisma.user.findMany({
+            where: { role: { in: ['ADMIN', 'STAFF'] } }
+        });
+        const adminNotifData = managers.map(admin => ({
+            userId: admin.id,
+            content: `Đơn hàng mới #${order.id} vừa được đặt!`,
+            link: '/admin/orders'
+        }));
+        if (adminNotifData.length > 0) {
+            await prisma.notification.createMany({ data: adminNotifData });
+            // Lấy lại các thông báo vừa tạo để emit chính xác kèm id
+            const createdNotifs = await prisma.notification.findMany({
+                where: { userId: { in: managers.map(m => m.id) } },
+                orderBy: { id: 'desc' },
+                take: managers.length
+            });
+            // Gửi 'receiveNotification' đến từng manager online để đổ chuông NotificationDropdown
+            for (const notif of createdNotifs) {
+                getIO().to(`user_${notif.userId}`).emit('receiveNotification', notif);
+            }
+        }
 
         getIO().emit('adminNotification', { content: `Đơn hàng mới #${order.id} vừa được đặt!` });
+        }
 
         res.status(201).json(order);
     } catch (e: any) {

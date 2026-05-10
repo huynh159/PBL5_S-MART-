@@ -21,9 +21,15 @@ Dự án đã được nâng cấp hoàn toàn từ Java Spring Boot sang **Node
 * Hệ thống Chat trực tiếp giữa Khách hàng và Admin (Sử dụng **Socket.io**).
 * Thông báo biến động trạng thái đơn hàng ngay lập tức (Real-time Notifications).
 
-### 4. Admin Dashboard (Trang Quản Trị)
+### 4. Tìm Kiếm Thông Minh (Advanced AI Search) 🚀
+* **AI Vector Search:** Tìm kiếm theo ngữ nghĩa (Semantics) sử dụng Google Gemini AI, hiểu nhu cầu khách hàng thay vì chỉ khớp từ khóa.
+* **Optimized Text Search:** Tìm kiếm Tiếng Việt tối ưu (không dấu, đa trường, tách từ) chuẩn Shopee.
+* **Auto-Indexing:** Tự động cập nhật dữ liệu tìm kiếm ngay khi thêm/sửa sản phẩm.
+
+### 5. Admin Dashboard (Trang Quản Trị)
 * Thống kê trực quan: Biểu đồ doanh thu theo năm/tháng, biểu đồ tròn trạng thái đơn hàng.
 * Quản lý Sản phẩm, Danh mục, Đơn hàng và Người dùng toàn diện.
+* Hệ thống quản lý tiến độ Indexing AI Search.
 
 ---
 
@@ -81,6 +87,12 @@ App sẽ chạy tại `http://localhost:3001`.
 ---
 
 ## 📂 Tài Liệu (Documentation)
-Xem thêm tại thư mục `doc/`:
-- `PROJECT_STATUS.md`: Trạng thái các tính năng.
-- `API_Documentation.md`: Danh sách các API Endpoint.
+
+| File | Nội dung |
+|---|---|
+| `doc/PROJECT_STATUS.md` | Trạng thái hoàn thành & hướng dẫn bàn giao |
+| `doc/API_Documentation.md` | Danh sách đầy đủ các API Endpoint |
+| `database/README.md` | Hướng dẫn Database (Prisma) |
+| `rules.md` | Quy tắc OOD & Domain Logic |
+| `AGENTS.md` | Hướng dẫn cho AI Agent |
+| `CODEMAP.md` | **Bản đồ luồng code** — AI/Developer đọc file này để tìm code nhanh |

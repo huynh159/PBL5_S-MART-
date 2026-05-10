@@ -13,6 +13,10 @@ const server = http.createServer(app);
 // Initialize Socket.io
 initSocket(server);
 
+// Start Order Cleanup Service (Auto-release stock for expired payments)
+import { OrderCleanupService } from './infrastructure/services/OrderCleanupService';
+OrderCleanupService.start();
+
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

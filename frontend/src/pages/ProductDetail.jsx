@@ -33,6 +33,7 @@ const ProductDetail = () => {
   const [similarProducts, setSimilarProducts] = useState([]);
 
   useEffect(() => {
+    window.scrollTo(0, 0); // Cuộn lên đầu trang khi đổi sản phẩm
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -40,7 +41,7 @@ const ProductDetail = () => {
           productService.getProductDetail(id),
           productService.getProductReviewStats(id),
           productService.getProductReviews(id),
-          productService.getSimilarProducts(id).catch(() => []) // Lấy danh sách gợi ý AI
+          productService.getSimilarProducts(id).catch(() => []) 
         ]);
         setProduct(detail);
         setAverageRating(stats?.averageRating || 0);
@@ -49,7 +50,6 @@ const ProductDetail = () => {
         setSimilarProducts(similar || []);
         setActiveImage(detail.imageUrl || '');
 
-        // Parse variations
         let vars = [];
         try {
             vars = JSON.parse(detail.variations || '[]');
@@ -498,18 +498,22 @@ const ProductDetail = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {similarProducts.map(sp => (
-              <div key={sp.id} className="bg-white rounded-lg shadow-sm overflow-hidden transition-transform transform hover:scale-[1.02]">
-                <div className="h-40 bg-gray-100 flex items-center justify-center">
-                  <img src={sp.imageUrl} alt={sp.name} className="max-h-full max-w-full object-contain" />
+              <div 
+                key={sp.id} 
+                onClick={() => navigate(`/product/${sp.id}`)}
+                className="bg-white rounded-lg shadow-sm overflow-hidden transition-all transform hover:scale-[1.02] hover:shadow-md cursor-pointer border border-transparent hover:border-blue-100"
+              >
+                <div className="h-40 bg-gray-100 flex items-center justify-center p-4">
+                  <img src={sp.imageUrl} alt={sp.name} className="max-h-full max-w-full object-contain mix-blend-multiply" />
                 </div>
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 line-clamp-1">{sp.name}</h3>
+                  <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[40px]">{sp.name}</h3>
                   <div className="flex items-center gap-2 mt-2">
-                    {renderStars(sp.averageRating, 'w-4 h-4')}
-                    <span className="text-sm text-gray-600">{sp.totalSold} đã bán</span>
+                    {renderStars(sp.averageRating || 5, 'w-3 h-3')}
+                    <span className="text-[10px] text-gray-500">{sp.totalSold || 0} đã bán</span>
                   </div>
-                  <p className="text-xl font-extrabold text-red-600 mt-2">
-                    {sp.salePrice ? sp.salePrice.toLocaleString('vi-VN') + ' ₫' : sp.price.toLocaleString('vi-VN') + ' ₫'}
+                  <p className="text-lg font-black text-red-600 mt-2">
+                    {(sp.salePrice || sp.price || 0).toLocaleString('vi-VN')} ₫
                   </p>
                 </div>
               </div>
