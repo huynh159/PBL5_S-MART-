@@ -5,6 +5,7 @@ import api from '../services/api';
 import { io } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
+import { playNotificationSound } from '../utils/sound';
 
 const NotificationDropdown = ({ token }) => {
   const [notifications, setNotifications] = useState([]);
@@ -12,9 +13,18 @@ const NotificationDropdown = ({ token }) => {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get('/notifications');
+      setNotifications(res.data);
+    } catch (e) {
+      console.error('Cannot fetch notifications', e);
+    }
+  };
+
   useEffect(() => {
     if (token) {
-      fetchNotifications();
+      queueMicrotask(fetchNotifications);
 
       const socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:8080');
       try {
@@ -26,6 +36,7 @@ const NotificationDropdown = ({ token }) => {
              const notifObj = typeof newNotif === 'string' ? { id: Date.now(), content: newNotif, isRead: false, createdAt: new Date() } : newNotif;
 
              // toast.info removed per user request to hide blue toasts on screen
+             playNotificationSound();
              setNotifications((prev) => [notifObj, ...prev]);
           });
 
@@ -52,15 +63,6 @@ const NotificationDropdown = ({ token }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await api.get('/notifications');
-      setNotifications(res.data);
-    } catch (e) {
-      console.error('Cannot fetch notifications', e);
-    }
-  };
 
   const handleNotificationClick = async (notif) => {
     setIsOpen(false);

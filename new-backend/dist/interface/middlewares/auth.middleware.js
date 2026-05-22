@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authMiddleware = void 0;
 exports.adminMiddleware = adminMiddleware;
 const PrismaClient_1 = require("../../infrastructure/persistence/PrismaClient");
+const env_1 = require("../../infrastructure/config/env");
 // ── Auth Middleware (JWT verify) ─────────────────────
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const authMiddleware = async (req, res, next) => {
@@ -16,7 +17,7 @@ const authMiddleware = async (req, res, next) => {
     }
     const token = authHeader.slice(7);
     try {
-        const secret = process.env.JWT_SECRET || 'super-secret-key-sport-shop';
+        const secret = (0, env_1.getRequiredEnv)('JWT_SECRET', 'development-secret-key-sport-shop');
         const decoded = jsonwebtoken_1.default.verify(token, secret);
         // Kiểm tra xem tài khoản có bị khóa không
         const user = await PrismaClient_1.prisma.user.findUnique({

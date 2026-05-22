@@ -2,16 +2,20 @@ import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, Users, ShoppingBag, LogOut, 
-  FileText, Ticket, MessageSquare, Bell, Search,
-  ChevronRight
+  FileText, Ticket, MessageSquare, Search,
+  ChevronRight, UserCircle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import NotificationDropdown from '../components/NotificationDropdown';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useUnreadChat } from '../hooks/useUnreadChat';
+
+const MotionDiv = motion.div;
 
 const AdminLayout = () => {
   const { logout, token, isAdmin, role } = useAuth();
   const navigate = useNavigate();
+  const hasUnreadChat = useUnreadChat(token);
 
   if (!token) return <Navigate to="/login" replace />;
   if (!isAdmin) {
@@ -32,6 +36,7 @@ const AdminLayout = () => {
     { to: '/admin/users', icon: Users, label: 'Khách hàng' },
     { to: '/admin/coupons', icon: Ticket, label: 'Mã giảm giá' },
     { to: '/admin/chat', icon: MessageSquare, label: 'Hỗ trợ & Chat' },
+    { to: '/admin/profile', icon: UserCircle, label: 'Ho so' },
   ];
 
   return (
@@ -39,7 +44,7 @@ const AdminLayout = () => {
       {/* Sidebar */}
       <aside className="w-72 glass-dark text-white flex flex-col z-20 relative shadow-2xl">
         <div className="h-20 flex items-center px-8 border-b border-slate-700/50 mb-4">
-          <motion.div 
+          <MotionDiv 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-3"
@@ -50,7 +55,7 @@ const AdminLayout = () => {
             <h1 className="text-xl font-display font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
               S-MART <span className="text-indigo-400">PRO</span>
             </h1>
-          </motion.div>
+          </MotionDiv>
         </div>
 
         {/* Admin Profile Mini */}
@@ -79,9 +84,12 @@ const AdminLayout = () => {
                   : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}
               `}
             >
-              <div className="flex items-center gap-3.5">
+              <div className="flex items-center gap-3.5 relative">
                 <item.icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110`} />
                 <span className="font-medium tracking-wide">{item.label}</span>
+                {item.to === '/admin/chat' && hasUnreadChat && (
+                  <span className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-red-500 border-2 border-slate-900 rounded-full animate-pulse"></span>
+                )}
               </div>
               <ChevronRight className={`w-4 h-4 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-1`} />
             </NavLink>
@@ -126,14 +134,14 @@ const AdminLayout = () => {
 
         {/* View Routing with Animation */}
         <div className="flex-1 overflow-auto bg-slate-50/50 custom-scrollbar">
-          <motion.div 
+          <MotionDiv 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
             className="p-10"
           >
             <Outlet />
-          </motion.div>
+          </MotionDiv>
         </div>
       </main>
     </div>

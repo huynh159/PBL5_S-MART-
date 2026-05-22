@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
 import api from '../services/api';
-import { Star, StarHalf, X, Upload } from 'lucide-react';
+import { Star, X, Upload } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 const STATUS_MAP = {
@@ -21,7 +21,7 @@ const STATUS_MAP = {
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
   const [cancelingId, setCancelingId] = useState(null);
   const [myReviews, setMyReviews] = useState({});
 

@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import http from 'http';
@@ -9,19 +9,30 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+app.set('trust proxy', 1);
 
 // Initialize Socket.io
 initSocket(server);
 
 // Start Order Cleanup Service (Auto-release stock for expired payments)
 import { OrderCleanupService } from './infrastructure/services/OrderCleanupService';
-OrderCleanupService.start();
+if (process.env.DISABLE_ORDER_CLEANUP !== 'true') {
+    OrderCleanupService.start();
+}
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_BASE_URL || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+app.use(cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+    credentials: true
+}));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
-// ─── Routes ───────────────────────────────────────────
+// â”€â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import authRoutes from './interface/routes/auth.routes';
 import productRoutes from './interface/routes/product.routes';
 import categoryRoutes from './interface/routes/category.routes';
@@ -48,9 +59,17 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/payment', paymentRoutes);
 
+app.get('/health', (_req, res) => {
+    res.json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
+
 app.get('/', (_req, res) => {
     res.json({ message: 'Sport Shop API (Node.js + TypeScript) is running!' });
 });
 
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

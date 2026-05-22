@@ -1,4 +1,5 @@
 import { prisma } from '../../infrastructure/persistence/PrismaClient';
+import { getRequiredEnv } from '../../infrastructure/config/env';
 
 // ── Auth Middleware (JWT verify) ─────────────────────
 import jwt from 'jsonwebtoken';
@@ -16,7 +17,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     }
     const token = authHeader.slice(7);
     try {
-        const secret = process.env.JWT_SECRET || 'super-secret-key-sport-shop';
+        const secret = getRequiredEnv('JWT_SECRET', 'development-secret-key-sport-shop');
         const decoded = jwt.verify(token, secret) as { userId: number; role: string };
 
         // Kiểm tra xem tài khoản có bị khóa không

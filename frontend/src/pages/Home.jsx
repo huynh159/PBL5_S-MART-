@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { 
   Search, ChevronLeft, ChevronRight, Sparkles, 
   Zap, Clock, ShoppingBag, Trophy, Activity, 
@@ -14,17 +14,16 @@ const Home = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
   const [search, setSearch] = useState(urlSearch);
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalElements, setTotalElements] = useState(0);
+  const [, setTotalElements] = useState(0);
   const [aiMode, setAiMode] = useState(false);
-  const [searchMeta, setSearchMeta] = useState(null);
+  const [, setSearchMeta] = useState(null);
   const PAGE_SIZE = 12;
-  const navigate = useNavigate();
 
   useEffect(() => {
     productService.getCategories()

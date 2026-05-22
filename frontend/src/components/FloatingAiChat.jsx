@@ -24,7 +24,7 @@ const FloatingAiChat = () => {
       const response = await api.post('/chat/ai/ask', { message: userMessage.text });
       const aiMessage = { text: response.data.answer, sender: 'ai' };
       setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
+    } catch {
       setMessages((prev) => [...prev, { text: 'Mình đang gặp chút sự cố kết nối AI, bạn thử lại sau nhé!', sender: 'ai' }]);
     } finally {
       setLoading(false);

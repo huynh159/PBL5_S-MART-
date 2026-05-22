@@ -33,6 +33,16 @@ const authService = {
     return await api.post('/auth/reset-password', { email, otp, newPassword });
   },
 
+  getMe: async () => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.put('/auth/change-password', { currentPassword, newPassword });
+    return response.data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
   },

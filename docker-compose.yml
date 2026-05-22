@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg15
@@ -14,5 +12,42 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  backend:
+    build:
+      context: ./new-backend
+    container_name: sport_shop_backend
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://postgres:1@postgres:5432/sport_shop?schema=public
+      JWT_SECRET: change-this-secret-before-deploy
+      FRONTEND_BASE_URL: http://localhost:3001
+      CORS_ORIGIN: http://localhost:3001
+      VNP_TMN_CODE: replace-with-vnpay-tmn-code
+      VNP_HASH_SECRET: replace-with-vnpay-hash-secret
+      VNP_RETURN_URL: http://localhost:8080/api/payment/vnpay-callback
+      DISABLE_ORDER_CLEANUP: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8080/api
+        VITE_WS_URL: http://localhost:8080
+    container_name: sport_shop_frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  backend_uploads:

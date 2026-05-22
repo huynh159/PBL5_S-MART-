@@ -34,7 +34,7 @@ const Checkout = () => {
   const [street, setStreet] = useState('');
 
   const [shippingFee, setShippingFee] = useState(0);
-  const [feeLoading, setFeeLoading] = useState(false);
+  const [, setFeeLoading] = useState(false);
 
   const selectedItemIds = location.state?.selectedItems || [];
   const directItems = location.state?.directItems || [];

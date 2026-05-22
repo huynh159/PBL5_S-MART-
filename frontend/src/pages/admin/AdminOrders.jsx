@@ -45,7 +45,7 @@ const AdminOrders = () => {
     fetchOrders();
 
     const socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:8080');
-    socket.on('adminNotification', (msg) => {
+    socket.on('adminNotification', () => {
       fetchOrders();
     });
     return () => { socket.disconnect(); };

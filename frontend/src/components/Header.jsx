@@ -11,10 +11,12 @@ import { jwtDecode } from 'jwt-decode';
 import NotificationDropdown from './NotificationDropdown';
 import productService from '../services/product.service';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUnreadChat } from '../hooks/useUnreadChat';
 
 const Header = () => {
   const { token, logout } = useAuth();
   const { cartCount } = useCart();
+  const hasUnreadChat = useUnreadChat(token);
   const [searchInput, setSearchInput] = useState('');
   const [aiMode, setAiMode] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -128,6 +130,9 @@ const Header = () => {
                 `}
               >
                 {link.label}
+                {link.to === '/chat' && hasUnreadChat && (
+                  <span className="absolute -top-1 -right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
+                )}
               </NavLink>
             ))}
             {userRole === 'ADMIN' && (

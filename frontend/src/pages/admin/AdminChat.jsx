@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { jwtDecode } from 'jwt-decode';
 import chatService from '../../services/chat.service';
 import { io } from 'socket.io-client';
+import { playNotificationSound } from '../../utils/sound';
 
 const AdminChat = () => {
   const { token } = useAuth();
@@ -59,6 +60,10 @@ const AdminChat = () => {
         currentUser &&
         (senderId === Number(currentUser.user.id) || receiverId === Number(currentUser.user.id));
 
+      if (senderId !== adminId) {
+        playNotificationSound();
+      }
+
       if (isRelatedToSelected) {
         setMessages(prev => {
           if (prev.find(m => m.id === newMsg.id)) return prev;
@@ -69,6 +74,7 @@ const AdminChat = () => {
           chatService.markAsSeen(senderId).catch(console.error);
         }
       } else if (senderId !== adminId) {
+        playNotificationSound();
         toast.info(`💬 Tin nhắn mới từ: ${newMsg.sender?.email || 'Khách hàng'}`);
       }
 

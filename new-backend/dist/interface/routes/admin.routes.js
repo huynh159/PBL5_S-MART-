@@ -5,19 +5,62 @@ const PrismaClient_1 = require("../../infrastructure/persistence/PrismaClient");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
 const socketService_1 = require("../../infrastructure/socket/socketService");
 const router = (0, express_1.Router)();
-// GET /api/admin/stats?year=2026
+// GET /api/admin/stats?year=2026&range=7d|30d|today|year|custom&startDate=...&endDate=...
 router.get('/stats', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
     try {
         const year = parseInt(req.query['year']) || new Date().getFullYear();
-        const [totalRevenue, totalOrders, totalProducts, totalUsers, orderStatusStats, monthlyData, yearsRaw] = await Promise.all([
-            PrismaClient_1.prisma.order.aggregate({ _sum: { total: true }, where: { status: 'DELIVERED' } }),
-            PrismaClient_1.prisma.order.count(),
+        const range = req.query['range'] || 'year';
+        // Calculate date range for filtering
+        const now = new Date();
+        let startDate;
+        let endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        switch (range) {
+            case 'today':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                break;
+            case '7d':
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case '30d':
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 30);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'custom':
+                startDate = req.query['startDate'] ? new Date(req.query['startDate']) : new Date(now.getFullYear(), 0, 1);
+                endDate = req.query['endDate'] ? new Date(req.query['endDate']) : endDate;
+                break;
+            default: // 'year'
+                startDate = new Date(year, 0, 1, 0, 0, 0, 0);
+                endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+                break;
+        }
+        const orderFilter = {
+            NOT: { AND: [{ paymentMethod: 'VNPAY' }, { status: 'PENDING' }] }
+        };
+        // Today boundaries for today-specific metrics
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const [totalRevenue, totalOrders, totalProducts, totalUsers, orderStatusStats, monthlyData, yearsRaw, todayRevenue, todayOrders, pendingOrders, topProductsRaw, recentOrders, lowStockProducts, newCustomers7d, topCustomersRaw] = await Promise.all([
+            // Core totals (filtered by range for DELIVERED orders)
+            PrismaClient_1.prisma.order.aggregate({
+                _sum: { total: true },
+                where: { status: 'DELIVERED', createdAt: { gte: startDate, lte: endDate } }
+            }),
+            PrismaClient_1.prisma.order.count({
+                where: { ...orderFilter, createdAt: { gte: startDate, lte: endDate } }
+            }),
             PrismaClient_1.prisma.product.count(),
             PrismaClient_1.prisma.user.count(),
+            // Order status breakdown (filtered by range)
             PrismaClient_1.prisma.order.groupBy({
                 by: ['status'],
+                where: { ...orderFilter, createdAt: { gte: startDate, lte: endDate } },
                 _count: { id: true }
             }),
+            // Monthly revenue for chart
             PrismaClient_1.prisma.$queryRaw `
                 SELECT EXTRACT(MONTH FROM created_at) as month, SUM(total) as revenue
                 FROM orders 
@@ -25,23 +68,97 @@ router.get('/stats', auth_middleware_1.authMiddleware, auth_middleware_1.adminMi
                 GROUP BY EXTRACT(MONTH FROM created_at)
                 ORDER BY month ASC
             `,
-            PrismaClient_1.prisma.$queryRaw `SELECT DISTINCT EXTRACT(YEAR FROM created_at) as year FROM orders ORDER BY year DESC`
+            PrismaClient_1.prisma.$queryRaw `SELECT DISTINCT EXTRACT(YEAR FROM created_at) as year FROM orders ORDER BY year DESC`,
+            // Today's revenue
+            PrismaClient_1.prisma.order.aggregate({
+                _sum: { total: true },
+                where: { status: 'DELIVERED', createdAt: { gte: todayStart, lte: todayEnd } }
+            }),
+            // Today's orders count
+            PrismaClient_1.prisma.order.count({
+                where: { ...orderFilter, createdAt: { gte: todayStart, lte: todayEnd } }
+            }),
+            // Pending orders count (all time)
+            PrismaClient_1.prisma.order.count({
+                where: { status: { in: ['PENDING', 'PAID'] } }
+            }),
+            // Top 5 best-selling products (by quantity sold in DELIVERED orders within range)
+            PrismaClient_1.prisma.$queryRaw `
+                SELECT p.id, p.name, p."image_url" as "imageUrl", COALESCE(SUM(oi.quantity), 0)::int as "totalSold",
+                       COALESCE(SUM(oi.quantity * oi.price), 0)::float as "totalRevenue"
+                FROM products p
+                JOIN order_items oi ON oi.product_id = p.id
+                JOIN orders o ON o.id = oi.order_id
+                WHERE o.status = 'DELIVERED' AND o.created_at >= ${startDate} AND o.created_at <= ${endDate}
+                GROUP BY p.id, p.name, p."image_url"
+                ORDER BY "totalSold" DESC
+                LIMIT 5
+            `,
+            // Recent 8 orders
+            PrismaClient_1.prisma.order.findMany({
+                where: orderFilter,
+                take: 8,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: { select: { id: true, email: true } },
+                    orderItems: { select: { quantity: true } }
+                }
+            }),
+            // Low stock products (stock < 20)
+            PrismaClient_1.prisma.product.findMany({
+                where: { stock: { lt: 20 }, status: 'ACTIVE' },
+                select: { id: true, name: true, stock: true, imageUrl: true },
+                orderBy: { stock: 'asc' },
+                take: 8
+            }),
+            // New customers in last 7 days
+            PrismaClient_1.prisma.user.count({
+                where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } }
+            }),
+            // Top 5 customers by total spending
+            PrismaClient_1.prisma.$queryRaw `
+                SELECT u.id, u.email, COUNT(o.id)::int as "orderCount", COALESCE(SUM(o.total), 0)::float as "totalSpent"
+                FROM users u
+                JOIN orders o ON o.user_id = u.id
+                WHERE o.status = 'DELIVERED'
+                GROUP BY u.id, u.email
+                ORDER BY "totalSpent" DESC
+                LIMIT 5
+            `
         ]);
         // Format monthly revenue for recharts
         const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
         const revenueByMonth = months.map((m, i) => {
-            const found = monthlyData.find(d => Number(d.month) === (i + 1));
+            const found = monthlyData.find((d) => Number(d.month) === (i + 1));
             return { month: m, revenue: found ? Number(found.revenue) : 0 };
         });
         res.json({
             totalRevenue: totalRevenue._sum.total || 0,
+            todayRevenue: todayRevenue._sum.total || 0,
             totalOrders,
+            todayOrders,
+            pendingOrders,
             totalProducts,
             totalUsers,
+            newCustomers7d,
             orderStatusStats: orderStatusStats.map(s => ({ name: s.status, value: s._count.id })),
             revenueByMonth,
-            availableYears: yearsRaw.map(y => Number(y.year)),
-            selectedYear: year
+            availableYears: yearsRaw.map((y) => Number(y.year)),
+            selectedYear: year,
+            topProducts: topProductsRaw.map((p) => ({
+                id: Number(p.id), name: p.name, imageUrl: p.imageUrl,
+                totalSold: Number(p.totalSold), totalRevenue: Number(p.totalRevenue)
+            })),
+            recentOrders: recentOrders.map(o => ({
+                id: o.id, email: o.user?.email || 'N/A', total: o.total,
+                status: o.status, paymentMethod: o.paymentMethod,
+                createdAt: o.createdAt, itemCount: o.orderItems.reduce((s, i) => s + i.quantity, 0)
+            })),
+            lowStockProducts,
+            topCustomers: topCustomersRaw.map((c) => ({
+                id: Number(c.id), email: c.email,
+                orderCount: Number(c.orderCount), totalSpent: Number(c.totalSpent)
+            }))
         });
     }
     catch (e) {
@@ -86,6 +203,14 @@ router.put('/users/:id/toggle-lock', auth_middleware_1.authMiddleware, auth_midd
 router.get('/orders', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (_req, res) => {
     try {
         const orders = await PrismaClient_1.prisma.order.findMany({
+            where: {
+                NOT: {
+                    AND: [
+                        { paymentMethod: 'VNPAY' },
+                        { status: 'PENDING' }
+                    ]
+                }
+            },
             include: { user: { select: { id: true, email: true } }, orderItems: { include: { product: true } }, coupon: true },
             orderBy: { createdAt: 'desc' }
         });
@@ -102,6 +227,7 @@ router.put('/orders/:id/status', auth_middleware_1.authMiddleware, auth_middlewa
         const { status } = req.body;
         const VALID_TRANSITIONS = {
             PENDING: ['CONFIRMED', 'CANCELLED'],
+            PAID: ['CONFIRMED', 'CANCELLED'],
             CONFIRMED: ['SHIPPING', 'CANCELLED'],
             SHIPPING: ['DELIVERED'],
             DELIVERED: [], CANCELLED: []
@@ -119,7 +245,7 @@ router.put('/orders/:id/status', auth_middleware_1.authMiddleware, auth_middlewa
         // Gửi thông báo cho user (Tạo record DB để người dùng xem lại ở chuông thông báo)
         let message = `Đơn hàng #${id} đã được cập nhật trạng thái mới.`;
         if (status === 'CONFIRMED')
-            message = `Đơn hàng #${id} của bạn đang được chuẩn bị.`;
+            message = `Đơn hàng #${id} của bạn đã được xác nhận và đang chuẩn bị.`;
         else if (status === 'SHIPPING')
             message = `Đơn hàng #${id} của bạn đang được giao.`;
         else if (status === 'DELIVERED')
@@ -158,6 +284,8 @@ router.post('/coupons', auth_middleware_1.authMiddleware, auth_middleware_1.admi
             data.expiryDate = new Date(data.expiryDate);
         if (data.discountPercent)
             data.discountPercent = Number(data.discountPercent);
+        if (data.quantity !== undefined)
+            data.quantity = Number(data.quantity);
         let existing = await PrismaClient_1.prisma.coupon.findUnique({ where: { code: data.code } });
         if (existing) {
             res.status(400).json({ error: 'Mã giảm giá đã tồn tại!' });
@@ -179,6 +307,8 @@ router.put('/coupons/:id', auth_middleware_1.authMiddleware, auth_middleware_1.a
             data.expiryDate = new Date(data.expiryDate);
         if (data.discountPercent)
             data.discountPercent = Number(data.discountPercent);
+        if (data.quantity !== undefined)
+            data.quantity = Number(data.quantity);
         // Remove `id` just in case it's passed in body to prevent update issues
         delete data.id;
         const updated = await PrismaClient_1.prisma.coupon.update({ where: { id }, data });

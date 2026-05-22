@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
+import { getRequiredEnv } from '../config/env';
 
 export class JwtService {
-    private readonly secret = process.env.JWT_SECRET || 'super-secret-key-sport-shop';
+    private readonly secret = getRequiredEnv('JWT_SECRET', 'development-secret-key-sport-shop');
     private readonly expiresIn = '24h';
 
     public generateToken(userId: string, role: string): string {

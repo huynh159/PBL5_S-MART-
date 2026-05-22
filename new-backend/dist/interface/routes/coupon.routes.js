@@ -13,12 +13,41 @@ router.get('/', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddlew
         res.status(500).json({ error: e.message });
     }
 });
+// GET /api/coupons/public (Public)
+router.get('/public', async (_req, res) => {
+    try {
+        const coupons = await PrismaClient_1.prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                expiryDate: { gte: new Date() },
+                quantity: { gt: 0 }
+            },
+            orderBy: { id: 'desc' }
+        });
+        res.json(coupons);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 // GET /api/coupons/apply/:code (User)
 router.get('/apply/:code', auth_middleware_1.authMiddleware, async (req, res) => {
     try {
         const coupon = await PrismaClient_1.prisma.coupon.findUnique({ where: { code: req.params.code } });
-        if (!coupon || !coupon.isActive || coupon.expiryDate < new Date()) {
-            res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
+        if (!coupon) {
+            res.status(404).json({ message: 'Mã giảm giá không tồn tại' });
+            return;
+        }
+        if (!coupon.isActive) {
+            res.status(400).json({ message: 'Mã giảm giá đã bị vô hiệu hóa' });
+            return;
+        }
+        if (coupon.expiryDate < new Date()) {
+            res.status(400).json({ message: 'Mã giảm giá đã hết hạn' });
+            return;
+        }
+        if (coupon.quantity <= 0) {
+            res.status(400).json({ message: 'Mã giảm giá đã hết lượt sử dụng' });
             return;
         }
         res.json(coupon);

@@ -28,20 +28,32 @@ export class PrismaOrderRepository implements OrderRepository {
         // Lưu ý: customerId trong Entity lúc này là chuỗi, nhưng DB lưu Int, 
         // ở mức production cần có mapper chuyên biệt.
         const cId = parseInt(order.customerId) || 1;
+        const items = order.getItems();
+        const products = await prisma.product.findMany({
+            where: { sku: { in: items.map(i => i.sku) } },
+            select: { id: true, sku: true }
+        });
+        const productIdBySku = new Map(products.map(p => [p.sku, p.id]));
 
-        const prismaOrder = await prisma.order.create({
+        await prisma.order.create({
             data: {
                 userId: cId,
-                total: order.totalAmount,
-                status: order.status as any,
+                total: order.totalAmount().amount,
+                status: statusStr as any,
                 address: "N/A",
                 phone: "N/A",
                 orderItems: {
-                    create: order.items.map(i => ({
-                        productId: i.productId,
-                        quantity: i.quantity,
-                        price: i.unitPrice.amount
-                    }))
+                    create: items.map(i => {
+                        const productId = productIdBySku.get(i.sku);
+                        if (!productId) {
+                            throw new Error(`Khong tim thay san pham voi SKU: ${i.sku}`);
+                        }
+                        return {
+                            productId,
+                            quantity: i.quantity,
+                            price: i.unitPrice.amount
+                        };
+                    })
                 }
             }
         });

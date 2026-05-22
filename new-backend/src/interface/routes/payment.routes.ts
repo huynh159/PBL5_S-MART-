@@ -2,14 +2,15 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../../infrastructure/persistence/PrismaClient';
 import { authMiddleware, AuthRequest } from '../middlewares/auth.middleware';
+import { getRequiredEnv } from '../../infrastructure/config/env';
 
 const router = Router();
 
-const VNP_TMN_CODE   = process.env.VNP_TMN_CODE   || '4PFYZUNE';
-const VNP_HASH_SECRET = process.env.VNP_HASH_SECRET || '70RUDI5QSBEWD49R0DDOU4GCKQZ4ARHQ';
-const VNP_URL         = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
-const VNP_RETURN_URL  = process.env.VNP_RETURN_URL  || 'http://localhost:8080/api/payment/vnpay-callback';
-const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || 'http://localhost:3001';
+const VNP_TMN_CODE = getRequiredEnv('VNP_TMN_CODE', 'sandbox-tmn-code');
+const VNP_HASH_SECRET = getRequiredEnv('VNP_HASH_SECRET', 'sandbox-hash-secret');
+const VNP_URL = process.env.VNP_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
+const VNP_RETURN_URL = getRequiredEnv('VNP_RETURN_URL', 'http://localhost:8080/api/payment/vnpay-callback');
+const FRONTEND_BASE_URL = getRequiredEnv('FRONTEND_BASE_URL', 'http://localhost:3001');
 
 /**
  * Tạo chuỗi ký (signData) theo chuẩn VNPay:

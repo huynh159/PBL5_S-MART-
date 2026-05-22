@@ -12,12 +12,25 @@ const socketService_1 = require("./infrastructure/socket/socketService");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
+app.set('trust proxy', 1);
 // Initialize Socket.io
 (0, socketService_1.initSocket)(server);
-app.use((0, cors_1.default)());
+// Start Order Cleanup Service (Auto-release stock for expired payments)
+const OrderCleanupService_1 = require("./infrastructure/services/OrderCleanupService");
+if (process.env.DISABLE_ORDER_CLEANUP !== 'true') {
+    OrderCleanupService_1.OrderCleanupService.start();
+}
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_BASE_URL || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+app.use((0, cors_1.default)({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+    credentials: true
+}));
 app.use(express_1.default.json());
-app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../uploads')));
-// ─── Routes ───────────────────────────────────────────
+app.use('/uploads', express_1.default.static(path_1.default.resolve(process.cwd(), 'uploads')));
+// â”€â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const auth_routes_1 = __importDefault(require("./interface/routes/auth.routes"));
 const product_routes_1 = __importDefault(require("./interface/routes/product.routes"));
 const category_routes_1 = __importDefault(require("./interface/routes/category.routes"));
@@ -42,9 +55,16 @@ app.use('/api/admin', admin_routes_1.default);
 app.use('/api/upload', upload_routes_1.default);
 app.use('/api/chat', chat_routes_1.default);
 app.use('/api/payment', payment_routes_1.default);
+app.get('/health', (_req, res) => {
+    res.json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
 app.get('/', (_req, res) => {
     res.json({ message: 'Sport Shop API (Node.js + TypeScript) is running!' });
 });
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 //# sourceMappingURL=index.js.map
