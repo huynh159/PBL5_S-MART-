@@ -1,3 +1,12 @@
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('CUSTOMER', 'STAFF', 'ADMIN');
+
+-- CreateEnum
+CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'LOCKED');
+
+-- CreateEnum
+CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'PAID', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED');
+
 -- CreateTable
 CREATE TABLE "categories" (
     "id" SERIAL NOT NULL,
@@ -12,12 +21,18 @@ CREATE TABLE "users" (
     "id" SERIAL NOT NULL,
     "email" VARCHAR(255) NOT NULL,
     "password" VARCHAR(255) NOT NULL,
-    "role" VARCHAR(20) NOT NULL DEFAULT 'USER',
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "role" "UserRole" NOT NULL DEFAULT 'CUSTOMER',
+    "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
     "is_verified" BOOLEAN NOT NULL DEFAULT true,
     "otp_code" VARCHAR(10),
     "otp_expiry" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "address" VARCHAR(500),
+    "phone" VARCHAR(20),
+    "accumulated_points" INTEGER NOT NULL DEFAULT 0,
+    "staff_code" VARCHAR(50),
+    "position" VARCHAR(100),
+    "department" VARCHAR(100),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -29,6 +44,7 @@ CREATE TABLE "coupons" (
     "discount_percent" INTEGER NOT NULL,
     "expiry_date" DATE NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "quantity" INTEGER NOT NULL DEFAULT 100,
 
     CONSTRAINT "coupons_pkey" PRIMARY KEY ("id")
 );
@@ -47,6 +63,8 @@ CREATE TABLE "products" (
     "status" VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     "variations" TEXT,
     "category_id" INTEGER NOT NULL,
+    "vector_data" TEXT,
+    "search_text" TEXT,
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
 );
@@ -64,13 +82,14 @@ CREATE TABLE "product_images" (
 CREATE TABLE "orders" (
     "id" SERIAL NOT NULL,
     "user_id" INTEGER NOT NULL,
-    "total" DOUBLE PRECISION NOT NULL,
-    "status" VARCHAR(50) NOT NULL DEFAULT 'PENDING',
-    "payment_method" VARCHAR(50),
-    "address" VARCHAR(255),
-    "phone" VARCHAR(20),
-    "note" VARCHAR(255),
     "coupon_id" INTEGER,
+    "total" DOUBLE PRECISION NOT NULL,
+    "shipping_fee" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "address" VARCHAR(500) NOT NULL,
+    "phone" VARCHAR(20) NOT NULL,
+    "note" VARCHAR(500),
+    "payment_method" VARCHAR(50) NOT NULL DEFAULT 'COD',
+    "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "orders_pkey" PRIMARY KEY ("id")
@@ -147,6 +166,9 @@ CREATE UNIQUE INDEX "categories_name_key" ON "categories"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_staff_code_key" ON "users"("staff_code");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "coupons_code_key" ON "coupons"("code");
