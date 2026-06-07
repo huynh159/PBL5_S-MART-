@@ -21,26 +21,12 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_BASE_URL
-        value: https://sport-shop-frontend.onrender.com
+        value: https://s-mart-frontend.vercel.app # URL của Vercel (bạn sẽ sửa lại sau)
       - key: CORS_ORIGIN
-        value: https://sport-shop-frontend.onrender.com
+        value: https://s-mart-frontend.vercel.app # URL của Vercel
       - key: VNP_TMN_CODE
         value: "REPLACE_ME_IN_DASHBOARD"
       - key: VNP_HASH_SECRET
         value: "REPLACE_ME_IN_DASHBOARD"
       - key: VNP_RETURN_URL
         value: https://sport-shop-backend.onrender.com/api/payment/vnpay-callback
-
-  # Frontend Static Site
-  - type: web
-    name: sport-shop-frontend
-    env: static
-    plan: free
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://sport-shop-backend.onrender.com/api
-      - key: VITE_WS_URL
-        value: https://sport-shop-backend.onrender.com
