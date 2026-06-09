@@ -11,7 +11,29 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response): Promise
             where: { userId: req.user!.userId },
             include: { product: { include: { images: true } } }
         });
-        res.json(items);
+
+        // Tự động cập nhật giá trong giỏ hàng theo giá mới nhất của sản phẩm
+        const updatedItems = [];
+        for (const item of items) {
+            const currentPrice = item.product.salePrice ?? item.product.price;
+            if (item.price !== currentPrice) {
+                // Giá sản phẩm đã thay đổi → cập nhật lại giá trong giỏ hàng
+                await prisma.cartItem.update({
+                    where: { id: item.id },
+                    data: { price: currentPrice }
+                });
+                updatedItems.push({
+                    ...item,
+                    oldPrice: item.price,
+                    price: currentPrice,
+                    priceChanged: true
+                });
+            } else {
+                updatedItems.push({ ...item, priceChanged: false });
+            }
+        }
+
+        res.json(updatedItems);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

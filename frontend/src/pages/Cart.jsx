@@ -27,6 +27,11 @@ const Cart = () => {
       setLoading(true);
       const data = await cartService.getCart();
       setCartItems(data);
+      // Kiểm tra và thông báo nếu có sản phẩm bị thay đổi giá
+      const changedItems = data.filter(item => item.priceChanged);
+      if (changedItems.length > 0) {
+        toast.info(`${changedItems.length} sản phẩm trong giỏ hàng đã được cập nhật giá mới.`);
+      }
     } catch (err) {
       setError('Lỗi tải giỏ hàng.');
       console.error(err);
@@ -70,7 +75,8 @@ const Cart = () => {
     return cartItems
       .filter(item => selectedItemIds.includes(item.id))
       .reduce((total, item) => {
-          const itemPrice = item.price ? item.price : (item.product?.salePrice || item.product?.price || 0);
+          // Luôn lấy giá mới nhất từ sản phẩm
+          const itemPrice = item.product?.salePrice || item.product?.price || item.price || 0;
           return total + itemPrice * item.quantity;
       }, 0);
   };
@@ -151,8 +157,16 @@ const Cart = () => {
                       </p>
                   )}
                   <p className="text-red-600 font-bold mt-1 text-lg">
-                    {(item.price ? item.price : (item.product?.salePrice || item.product?.price || 0)).toLocaleString('vi-VN')} ₫
+                    {(item.product?.salePrice || item.product?.price || item.price || 0).toLocaleString('vi-VN')} ₫
+                    {item.priceChanged && item.oldPrice && (
+                      <span className="ml-2 text-sm text-gray-400 line-through font-normal">
+                        {item.oldPrice.toLocaleString('vi-VN')} ₫
+                      </span>
+                    )}
                   </p>
+                  {item.priceChanged && (
+                    <p className="text-xs text-orange-500 mt-0.5">⚠ Giá sản phẩm đã được cập nhật</p>
+                  )}
                   <div className="flex items-center mt-4 bg-white border rounded-lg w-max shadow-sm">
                     <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="p-2 text-gray-500 hover:bg-gray-100">
                       <Minus className="w-4 h-4" />

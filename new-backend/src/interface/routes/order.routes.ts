@@ -249,7 +249,8 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
                 const product = await tx.product.findUnique({ where: { id: item.productId } });
                 if (!product) throw new Error(`Sản phẩm #${item.productId} không tồn tại`);
 
-                const unitPrice = item.price && item.price > 0 ? Number(item.price) : (product.salePrice ?? product.price);
+                // Luôn lấy giá mới nhất từ DB, không dùng giá cũ trong giỏ hàng
+                const unitPrice = product.salePrice ?? product.price;
                 subtotal += unitPrice * item.quantity;
                 resolvedItems.push({
                     productId: item.productId,
