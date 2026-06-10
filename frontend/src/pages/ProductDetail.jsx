@@ -92,7 +92,7 @@ const ProductDetail = () => {
           quantity,
           color: selectedColor,
           size: selectedSize,
-          price: currentPrice
+          price: currentSalePrice || currentPrice
       };
       const addedItem = await cartService.addToCart(payload);
       toast.success('Đã thêm sản phẩm vào giỏ hàng!');
@@ -144,7 +144,7 @@ const ProductDetail = () => {
       quantity: quantity,
       color: selectedColor,
       size: selectedSize,
-      price: currentPrice
+      price: currentSalePrice || currentPrice
     };
 
     navigate('/checkout', { state: { directItems: [directItem] } });
@@ -169,8 +169,11 @@ const ProductDetail = () => {
           const selectedVar = parsedVariations.find(v => v.color === selectedColor && v.size === selectedSize);
           currentStock = selectedVar ? (parseInt(selectedVar.stock) || 0) : 0;
           if (selectedVar && selectedVar.price) {
-              currentPrice = parseInt(selectedVar.price);
-              currentSalePrice = null; // Variation price overrides sale price
+              const varPrice = parseInt(selectedVar.price);
+              if (varPrice !== product?.price) {
+                  currentPrice = varPrice;
+                  currentSalePrice = null; // Variation overrides only if price is different
+              }
           }
       } else {
           // If variations exist but not fully selected, allow clicking the button to trigger warning
