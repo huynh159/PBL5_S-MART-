@@ -15,7 +15,7 @@ const Chat = () => {
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
   const [myUserId, setMyUserId] = useState(null);
-  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
   const socketRef = useRef(null);
   const [adminId, setAdminId] = useState(null);
 
@@ -101,7 +101,12 @@ const Chat = () => {
   }, [myUserId, adminId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [messages]);
 
   const handleSend = async (e) => {
@@ -165,7 +170,7 @@ const Chat = () => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <MessageCircle className="w-12 h-12 mb-3 opacity-40" />
@@ -187,7 +192,7 @@ const Chat = () => {
               </div>
             );
           })}
-          <div ref={messagesEndRef} />
+
         </div>
 
         <div className="p-4 border-t border-gray-100 bg-white">

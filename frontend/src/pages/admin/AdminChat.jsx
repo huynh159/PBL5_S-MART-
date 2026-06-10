@@ -15,7 +15,7 @@ const AdminChat = () => {
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
   const socketRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
   const selectedUserRef = useRef(null);
 
   // Lấy adminId từ JWT – stable value, không thay đổi
@@ -109,7 +109,12 @@ const AdminChat = () => {
   }, [selectedUser]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [messages]);
 
   const handleSelectUser = (conv) => {
@@ -212,7 +217,7 @@ const AdminChat = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/30">
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/30">
               {messages.length === 0 && (
                 <div className="flex items-center justify-center h-full text-gray-400 text-sm">Chưa có tin nhắn</div>
               )}
@@ -236,7 +241,7 @@ const AdminChat = () => {
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
+
             </div>
 
             <div className="p-4 bg-white border-t border-gray-100">
