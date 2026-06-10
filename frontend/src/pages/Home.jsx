@@ -12,6 +12,7 @@ const Home = () => {
   const [searchParams] = useSearchParams();
   const urlSearch = searchParams.get('search') || '';
   const [products, setProducts] = useState([]);
+  const [pinnedProducts, setPinnedProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [, setError] = useState(null);
@@ -29,6 +30,10 @@ const Home = () => {
     productService.getCategories()
       .then(data => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]));
+      
+    productService.getPinnedProducts()
+      .then(data => setPinnedProducts(Array.isArray(data) ? data : []))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -118,6 +123,76 @@ const Home = () => {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
+
+  const renderProductCard = (product) => (
+    <motion.div 
+      layout
+      key={product.id}
+      variants={itemVariants}
+      whileHover={{ y: -8 }}
+      className="group relative flex flex-col h-full"
+    >
+      <Link to={`/product/${product.id}`} className="block flex-1">
+        <div className="aspect-[4/5] rounded-[2rem] overflow-hidden bg-slate-100 relative mb-6">
+          <img 
+            src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/500`}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+            onError={e => { e.target.src = `https://picsum.photos/seed/${product.id}/400/500`; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          
+          {/* Floating Badge */}
+          {product.similarity ? (
+            <div className="absolute top-4 right-4 z-20">
+              <span className="bg-indigo-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-xl">
+                {Math.round(product.similarity * 100)}% MATCH
+              </span>
+            </div>
+          ) : product.isPinned ? (
+            <div className="absolute top-4 left-4 z-20">
+              <span className="bg-amber-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-xl flex items-center gap-1">
+                <Flame className="w-3 h-3" /> HOT
+              </span>
+            </div>
+          ) : null}
+
+          {!product.similarity && (
+            <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-xl hover:bg-indigo-600 hover:text-white transition-all">
+                <ShoppingCart className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          
+          <div className="absolute bottom-6 left-6 right-6 z-20 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+            <button className="w-full py-3 bg-white text-slate-900 font-bold rounded-xl text-sm shadow-xl">
+              Chi Tiết Sản Phẩm
+            </button>
+          </div>
+        </div>
+        
+        <div className="space-y-1 px-2">
+          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Premium Sportwear</p>
+          <h4 className="text-lg font-bold text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{product.name}</h4>
+          {product.salePrice ? (
+            <div className="flex items-end gap-2">
+              <p className="text-xl font-display font-black text-red-600">
+                {product.salePrice.toLocaleString('vi-VN')} ₫
+              </p>
+              <p className="text-sm font-medium text-slate-400 line-through mb-[2px]">
+                {product.price ? product.price.toLocaleString('vi-VN') : '0'} ₫
+              </p>
+            </div>
+          ) : (
+            <p className="text-xl font-display font-black text-slate-900">
+              {product.price ? product.price.toLocaleString('vi-VN') : '0'} ₫
+            </p>
+          )}
+        </div>
+      </Link>
+    </motion.div>
+  );
 
   return (
     <motion.div initial="hidden" animate="visible" variants={containerVariants} className="space-y-16 pb-20">
@@ -256,6 +331,28 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Pinned Products Section */}
+      {!search && !selectedCategory && !aiMode && pinnedProducts.length > 0 && (
+        <section className="space-y-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center font-bold">
+                <Flame className="w-5 h-5" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest">Sản Phẩm Nổi Bật</h3>
+            </div>
+          </div>
+          <motion.div 
+            initial="hidden" animate="visible" variants={containerVariants}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+          >
+            <AnimatePresence mode='popLayout'>
+              {pinnedProducts.map((product) => renderProductCard(product))}
+            </AnimatePresence>
+          </motion.div>
+        </section>
+      )}
+
       {/* Main Product Grid */}
       <section className="space-y-10">
         <div className="flex items-center justify-between">
@@ -290,56 +387,7 @@ const Home = () => {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
           >
             <AnimatePresence mode='popLayout'>
-              {products.map((product) => (
-                <motion.div 
-                  layout
-                  key={product.id}
-                  variants={itemVariants}
-                  whileHover={{ y: -8 }}
-                  className="group relative flex flex-col h-full"
-                >
-                  <Link to={`/product/${product.id}`} className="block flex-1">
-                    <div className="aspect-[4/5] rounded-[2rem] overflow-hidden bg-slate-100 relative mb-6">
-                      <img 
-                        src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/500`}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        onError={e => { e.target.src = `https://picsum.photos/seed/${product.id}/400/500`; }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      
-                      {/* Floating Badge */}
-                      {product.similarity ? (
-                        <div className="absolute top-4 right-4 z-20">
-                          <span className="bg-indigo-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-xl">
-                            {Math.round(product.similarity * 100)}% MATCH
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-xl hover:bg-indigo-600 hover:text-white transition-all">
-                            <ShoppingCart className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                      
-                      <div className="absolute bottom-6 left-6 right-6 z-20 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                        <button className="w-full py-3 bg-white text-slate-900 font-bold rounded-xl text-sm shadow-xl">
-                          Chi Tiết Sản Phẩm
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-1 px-2">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Premium Sportwear</p>
-                      <h4 className="text-lg font-bold text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{product.name}</h4>
-                      <p className="text-xl font-display font-black text-slate-900">
-                        {product.price ? product.price.toLocaleString('vi-VN') : '0'} ₫
-                      </p>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
+              {products.map((product) => renderProductCard(product))}
             </AnimatePresence>
           </motion.div>
         )}

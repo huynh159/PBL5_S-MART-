@@ -287,7 +287,7 @@ const ProductDetail = () => {
 
           <div className="mb-8">
             <h3 className="font-semibold text-gray-800 mb-2">Mô tả sản phẩm:</h3>
-            <p className="text-gray-600 leading-relaxed">
+            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
               {product.description || 'Chưa có thông tin mô tả chi tiết cho sản phẩm này.'}
             </p>
           </div>

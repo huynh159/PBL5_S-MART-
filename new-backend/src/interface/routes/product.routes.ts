@@ -233,6 +233,21 @@ router.get('/embed-status', authMiddleware, adminMiddleware, async (req: AuthReq
     }
 });
 
+// ─── GET /api/products/pinned (Lấy danh sách sản phẩm được ghim lên trang chủ) ─
+router.get('/pinned', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const products = await prisma.product.findMany({
+            where: { status: 'ACTIVE', isPinned: true },
+            include: { category: true, images: true },
+            orderBy: { id: 'desc' }
+        });
+        res.json(products.map((p) => mapProductResponse(p, baseUrl)));
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // ─── GET /api/products?page=0&size=12&search=&categoryId= ────────────
 router.get('/', async (req: Request, res: Response): Promise<void> => {
     try {
@@ -478,6 +493,27 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res
         });
 
         res.json(product);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─── PUT /api/products/:id/pin (Admin - Bật/tắt ghim sản phẩm) ─────────
+router.put('/:id/pin', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id as string);
+        const product = await prisma.product.findUnique({ where: { id } });
+        if (!product) {
+            res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+            return;
+        }
+
+        const updated = await prisma.product.update({
+            where: { id },
+            data: { isPinned: !product.isPinned }
+        });
+
+        res.json(updated);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

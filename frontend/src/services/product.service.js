@@ -13,6 +13,11 @@ const productService = {
     return response.data;
   },
 
+  getPinnedProducts: async () => {
+    const response = await api.get('/products/pinned');
+    return response.data;
+  },
+
   // AI-powered vector search
   searchByAI: async (query, limit = 12) => {
     const response = await api.get('/products/search/ai', {
@@ -51,6 +56,21 @@ const productService = {
     return response.data;
   },
 
+  createCategory: async (categoryData) => {
+    const response = await api.post('/categories', categoryData);
+    return response.data;
+  },
+
+  updateCategory: async (id, categoryData) => {
+    const response = await api.put(`/categories/${id}`, categoryData);
+    return response.data;
+  },
+
+  deleteCategory: async (id) => {
+    const response = await api.delete(`/categories/${id}`);
+    return response.data;
+  },
+
   // Admin CRUD
   createProduct: async (productData) => {
     const response = await api.post('/products', productData);
@@ -64,6 +84,11 @@ const productService = {
 
   deleteProduct: async (id) => {
     const response = await api.delete(`/products/${id}`);
+    return response.data;
+  },
+
+  togglePinProduct: async (id) => {
+    const response = await api.put(`/products/${id}/pin`);
     return response.data;
   },
 

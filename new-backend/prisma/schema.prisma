@@ -95,6 +95,7 @@ model Product {
   categoryId    Int            @map("category_id")
   vectorData    String?        @map("vector_data") @db.Text
   searchText    String?        @map("search_text") @db.Text
+  isPinned      Boolean        @default(false) @map("is_pinned")
   category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images        ProductImage[]
   orderItems    OrderItem[]

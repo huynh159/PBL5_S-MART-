@@ -4,7 +4,7 @@ import {
   ShoppingBag, Plus, Pencil, Trash2, X, Check, 
   Upload, ImageIcon, Sparkles, Brain, Loader2,
   Search, Filter, ExternalLink, ChevronRight,
-  MoreVertical, AlertCircle
+  MoreVertical, AlertCircle, Settings, Pin
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,12 @@ const AdminProducts = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
+
+  // Category Management State
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '' });
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [categoryLoading, setCategoryLoading] = useState(false);
 
   const initialForm = {
       name: '', price: '', salePrice: '', sku: '',
@@ -31,17 +37,27 @@ const AdminProducts = () => {
   const [embedStatus, setEmbedStatus] = useState(null);
   const [embedding, setEmbedding] = useState(false);
 
+  const loadCategories = async () => {
+    try {
+      const data = await productService.getCategories();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [prodData, catData] = await Promise.all([
-          productService.getProducts(0, 500, search, null, true),
-          productService.getCategories()
+      const [pData, cData] = await Promise.all([
+        productService.getProducts(0, 100, '', null, true),
+        productService.getCategories()
       ]);
-      setProducts(prodData.content || prodData);
-      setCategories(catData);
-    } catch (err) {
-      toast.error('Lỗi tải dữ liệu');
+      setProducts(pData.content || pData);
+      setCategories(Array.isArray(cData) ? cData : []);
+    } catch (error) {
+      toast.error('Lỗi khi tải dữ liệu');
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -180,14 +196,74 @@ const AdminProducts = () => {
     }
   };
 
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Xóa sản phẩm "${name}"?`)) return;
+  const handleDelete = async (id) => {
+    if (!window.confirm('Chắc chắn xóa sản phẩm này?')) return;
     try {
       await productService.deleteProduct(id);
-      toast.success('Đã xóa!');
-      setProducts(prev => prev.filter(p => p.id !== id));
+      toast.success('Xóa thành công');
+      fetchData();
     } catch (err) {
-      toast.error('Lỗi khi xóa!');
+      toast.error('Lỗi khi xóa sản phẩm');
+    }
+  };
+
+  const handleTogglePin = async (id) => {
+    try {
+      await productService.togglePinProduct(id);
+      toast.success('Cập nhật trạng thái ghim thành công');
+      fetchData();
+    } catch (err) {
+      toast.error('Lỗi khi ghim sản phẩm');
+    }
+  };
+
+  // Category Management Logic
+  const handleOpenCategoryModal = () => {
+    setCategoryForm({ id: null, name: '', description: '' });
+    setEditingCategory(false);
+    setShowCategoryModal(true);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast.error('Vui lòng nhập tên danh mục');
+      return;
+    }
+    setCategoryLoading(true);
+    try {
+      if (editingCategory && categoryForm.id) {
+        await productService.updateCategory(categoryForm.id, { name: categoryForm.name, description: categoryForm.description });
+        toast.success('Cập nhật danh mục thành công');
+      } else {
+        await productService.createCategory({ name: categoryForm.name, description: categoryForm.description });
+        toast.success('Thêm danh mục mới thành công');
+      }
+      setCategoryForm({ id: null, name: '', description: '' });
+      setEditingCategory(false);
+      await loadCategories();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi khi lưu danh mục');
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  const handleEditCategoryClick = (cat) => {
+    setCategoryForm({ id: cat.id, name: cat.name, description: cat.description || '' });
+    setEditingCategory(true);
+  };
+
+  const handleDeleteCategory = async (id) => {
+    if (!window.confirm('Bạn có chắc muốn xóa danh mục này?')) return;
+    setCategoryLoading(true);
+    try {
+      await productService.deleteCategory(id);
+      toast.success('Đã xóa danh mục');
+      await loadCategories();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi khi xóa danh mục');
+    } finally {
+      setCategoryLoading(false);
     }
   };
 
@@ -324,10 +400,19 @@ const AdminProducts = () => {
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleTogglePin(p.id)} 
+                          title={p.isPinned ? "Bỏ ghim" : "Ghim lên trang chủ"}
+                          className={`p-2.5 bg-white border border-slate-100 rounded-xl shadow-sm transition-all ${
+                            p.isPinned ? 'text-amber-500 hover:bg-amber-500 hover:text-white' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'
+                          }`}
+                        >
+                          <Pin className="w-4 h-4" />
+                        </button>
                         <button onClick={() => openEdit(p)} className="p-2.5 bg-white border border-slate-100 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl shadow-sm transition-all">
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(p.id, p.name)} className="p-2.5 bg-white border border-slate-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl shadow-sm transition-all">
+                        <button onClick={() => handleDelete(p.id)} className="p-2.5 bg-white border border-slate-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl shadow-sm transition-all">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -450,7 +535,16 @@ const AdminProducts = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Category</label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Category</label>
+                          <button 
+                            type="button" 
+                            onClick={handleOpenCategoryModal}
+                            className="text-xs text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1"
+                          >
+                            <Settings className="w-3 h-3" /> Quản lý danh mục
+                          </button>
+                        </div>
                         <select 
                           value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
                           className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -631,6 +725,84 @@ const AdminProducts = () => {
                   {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                   {editProduct ? 'Save Changes' : 'Publish Product'}
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Quản lý danh mục (Nested Modal) */}
+      <AnimatePresence>
+        {showCategoryModal && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 lg:pl-76">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowCategoryModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h2 className="text-xl font-black text-slate-800">Quản lý danh mục</h2>
+                <button onClick={() => setShowCategoryModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-auto p-6 flex flex-col md:flex-row gap-8">
+                {/* Form thêm/sửa danh mục */}
+                <div className="md:w-1/2 space-y-4">
+                  <h3 className="font-bold text-slate-700">{editingCategory ? 'Sửa Danh Mục' : 'Thêm Danh Mục Mới'}</h3>
+                  <input 
+                    type="text" placeholder="Tên danh mục..."
+                    value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium text-slate-800 outline-none focus:border-indigo-500"
+                  />
+                  <textarea 
+                    placeholder="Mô tả (tùy chọn)" rows="3"
+                    value={categoryForm.description} onChange={e => setCategoryForm({...categoryForm, description: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium text-slate-800 outline-none focus:border-indigo-500 resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handleSaveCategory} disabled={categoryLoading}
+                      className="flex-1 bg-indigo-600 text-white font-bold py-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {categoryLoading ? 'Đang lưu...' : (editingCategory ? 'Cập nhật' : 'Thêm mới')}
+                    </button>
+                    {editingCategory && (
+                      <button 
+                        onClick={() => { setEditingCategory(false); setCategoryForm({ id: null, name: '', description: '' }); }}
+                        className="px-4 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300"
+                      >
+                        Hủy
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Danh sách danh mục */}
+                <div className="md:w-1/2 border-t md:border-t-0 md:border-l border-slate-100 md:pl-8 pt-6 md:pt-0">
+                  <h3 className="font-bold text-slate-700 mb-4">Danh sách hiện tại</h3>
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                    {categories.map(cat => (
+                      <div key={cat.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-indigo-200 bg-white group transition-colors">
+                        <span className="font-medium text-slate-700">{cat.name}</span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => handleEditCategoryClick(cat)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {categories.length === 0 && <p className="text-sm text-slate-400 italic">Chưa có danh mục nào.</p>}
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
