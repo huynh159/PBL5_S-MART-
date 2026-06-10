@@ -25,10 +25,7 @@ router.post('/send', authMiddleware, async (req: AuthRequest, res: Response): Pr
         });
         
         // Emit via socket
-        const receiverSocketId = onlineUsers.get(receiverId);
-        if (receiverSocketId) {
-            getIO().to(receiverSocketId).emit('receiveMessage', msg);
-        }
+        getIO().to(`user_${receiverId}`).emit('receiveMessage', msg);
         
         res.status(201).json(msg);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -86,12 +83,42 @@ router.put('/mark-seen/:senderId', authMiddleware, async (req: AuthRequest, res:
         });
         
         // Emit seen event to the original sender
-        const senderSocketId = onlineUsers.get(senderId);
-        if (senderSocketId) {
-            getIO().to(senderSocketId).emit('seenEvent', { readerId: req.user!.userId });
-        }
+        getIO().to(`user_${senderId}`).emit('seenEvent', { readerId: req.user!.userId });
         
         res.json({ message: 'Đã đánh dấu đã xem' });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/chat/unread-count
+router.get('/unread-count', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const count = await prisma.message.count({
+            where: { receiverId: req.user!.userId, status: 'SENT' }
+        });
+        res.json({ unreadCount: count });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/chat/:id/recall
+router.put('/:id/recall', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id as string);
+        if (isNaN(id)) { res.status(400).json({ error: 'ID không hợp lệ' }); return; }
+        const userId = req.user!.userId;
+        const msg = await prisma.message.findUnique({ where: { id } });
+        if (!msg) { res.status(404).json({ error: 'Không tìm thấy tin nhắn' }); return; }
+        if (msg.senderId !== userId) { res.status(403).json({ error: 'Không có quyền thu hồi' }); return; }
+        
+        const updatedMsg = await prisma.message.update({
+            where: { id },
+            data: { content: 'Tin nhắn đã bị thu hồi', status: 'RECALLED' },
+            include: { sender: { select: { id: true, email: true } } }
+        });
+
+        // Emit via socket
+        getIO().to(`user_${updatedMsg.receiverId}`).emit('messageRecalled', updatedMsg);
+        
+        res.json({ message: 'Đã thu hồi tin nhắn', data: updatedMsg });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

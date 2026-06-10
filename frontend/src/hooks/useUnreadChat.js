@@ -5,22 +5,23 @@ import { jwtDecode } from 'jwt-decode';
 import chatService from '../services/chat.service';
 
 export const useUnreadChat = (token) => {
-  const [hasUnreadChat, setHasUnreadChat] = useState(false);
-  const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!token) return;
 
     const checkUnread = async () => {
       try {
-        const convs = await chatService.getConversations();
-        const decoded = jwtDecode(token);
-        const myId = decoded.userId || decoded.id || decoded.sub;
-        const unread = convs.some(c => c.lastMessage.status !== 'SEEN' && Number(c.lastMessage.receiverId) === Number(myId));
-        setHasUnreadChat(unread);
-      } catch (e) {}
+        const data = await chatService.getUnreadCount();
+        setUnreadCount(data.unreadCount || 0);
+      } catch (e) {
+        console.error('Lỗi lấy số tin nhắn chưa đọc', e);
+      }
     };
     checkUnread();
+
+    const handleLocalRead = () => checkUnread();
+    window.addEventListener('chatRead', handleLocalRead);
 
     const socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:8080');
     try {
@@ -30,18 +31,18 @@ export const useUnreadChat = (token) => {
             socket.on('connect', () => socket.emit('register', uid));
             socket.on('receiveMessage', (msg) => {
                 if (Number(msg.receiverId) === Number(uid)) {
-                    // Show badge if not on chat page
-                    if (!window.location.pathname.includes('/chat')) {
-                        setHasUnreadChat(true);
-                    }
+                    checkUnread();
                 }
             });
-            socket.on('seenEvent', () => setHasUnreadChat(false));
+            // We don't reset count on 'seenEvent' because that means our sent message was seen.
         }
     } catch (e) {}
 
-    return () => { socket.disconnect(); };
+    return () => { 
+        socket.disconnect(); 
+        window.removeEventListener('chatRead', handleLocalRead);
+    };
   }, [token]);
 
-  return location.pathname.includes('/chat') ? false : hasUnreadChat;
+  return unreadCount;
 };

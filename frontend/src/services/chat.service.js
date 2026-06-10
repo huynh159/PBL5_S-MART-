@@ -18,11 +18,22 @@ const chatService = {
 
   markAsSeen: async (senderId) => {
     const response = await api.put(`/chat/mark-seen/${senderId}`);
+    window.dispatchEvent(new Event('chatRead'));
     return response.data;
   },
 
   getAdminId: async () => {
     const response = await api.get('/chat/admin-id');
+    return response.data;
+  },
+
+  getUnreadCount: async () => {
+    const response = await api.get('/chat/unread-count');
+    return response.data;
+  },
+
+  recallMessage: async (id) => {
+    const response = await api.put(`/chat/${id}/recall`);
     return response.data;
   },
 };

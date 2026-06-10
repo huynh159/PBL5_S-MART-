@@ -213,6 +213,21 @@ router.get('/embed-status', auth_middleware_1.authMiddleware, auth_middleware_1.
         res.status(500).json({ error: error.message });
     }
 });
+// ─── GET /api/products/pinned (Lấy danh sách sản phẩm được ghim lên trang chủ) ─
+router.get('/pinned', async (req, res) => {
+    try {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const products = await PrismaClient_1.prisma.product.findMany({
+            where: { status: 'ACTIVE', isPinned: true },
+            include: { category: true, images: true },
+            orderBy: { id: 'desc' }
+        });
+        res.json(products.map((p) => mapProductResponse(p, baseUrl)));
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 // ─── GET /api/products?page=0&size=12&search=&categoryId= ────────────
 router.get('/', async (req, res) => {
     try {
@@ -467,6 +482,25 @@ router.put('/:id', auth_middleware_1.authMiddleware, auth_middleware_1.adminMidd
             console.error(`⚠️ Re-embed failed for product #${id}:`, err.message);
         });
         res.json(product);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// ─── PUT /api/products/:id/pin (Admin - Bật/tắt ghim sản phẩm) ─────────
+router.put('/:id/pin', auth_middleware_1.authMiddleware, auth_middleware_1.adminMiddleware, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const product = await PrismaClient_1.prisma.product.findUnique({ where: { id } });
+        if (!product) {
+            res.status(404).json({ error: 'Không tìm thấy sản phẩm' });
+            return;
+        }
+        const updated = await PrismaClient_1.prisma.product.update({
+            where: { id },
+            data: { isPinned: !product.isPinned }
+        });
+        res.json(updated);
     }
     catch (e) {
         res.status(500).json({ error: e.message });

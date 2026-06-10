@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { MessageCircle, Send, RefreshCw, Check, CheckCheck } from 'lucide-react';
+import { MessageCircle, Send, RefreshCw, Check, CheckCheck, MoreVertical } from 'lucide-react';
 import chatService from '../services/chat.service';
 import { jwtDecode } from 'jwt-decode';
 import { io } from 'socket.io-client';
@@ -18,6 +18,7 @@ const Chat = () => {
   const chatContainerRef = useRef(null);
   const socketRef = useRef(null);
   const [adminId, setAdminId] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
   // Initialize content from product context
   useEffect(() => {
@@ -95,10 +96,24 @@ const Chat = () => {
       setMessages(prev => prev.map(m => ({ ...m, status: 'SEEN' })));
     });
 
+    socket.on('messageRecalled', (updatedMsg) => {
+      setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+    });
+
     return () => {
       socket.disconnect();
     };
   }, [myUserId, adminId]);
+
+  const handleRecall = async (msgId) => {
+    try {
+      const updatedMsg = await chatService.recallMessage(msgId);
+      setMessages(prev => prev.map(m => m.id === msgId ? updatedMsg.data || updatedMsg : m));
+      setActiveDropdown(null);
+    } catch (err) {
+      toast.error('Không thể thu hồi tin nhắn');
+    }
+  };
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -181,12 +196,26 @@ const Chat = () => {
             const senderId = msg.sender?.id || msg.senderId;
             const isMe = String(senderId) === String(myUserId);
             return (
-              <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-xs md:max-w-sm px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-md'}`}>
-                  <p className="break-words leading-relaxed">{renderMessageContent(msg.content, isMe)}</p>
-                  <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
+              <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group mb-2`}>
+                {isMe && msg.status !== 'RECALLED' && (
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pr-2 relative">
+                    <button onClick={() => setActiveDropdown(activeDropdown === msg.id ? null : msg.id)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                    {activeDropdown === msg.id && (
+                      <div className="absolute right-0 top-10 bg-white border border-gray-100 shadow-lg rounded-lg py-1 z-50 min-w-[120px]">
+                        <button onClick={() => handleRecall(msg.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
+                          Thu hồi
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className={`max-w-xs md:max-w-sm px-4 py-2.5 rounded-2xl text-sm shadow-sm ${msg.status === 'RECALLED' ? 'bg-transparent border border-gray-200 text-gray-400 italic rounded-md' : isMe ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-md'}`}>
+                  <p className="break-words leading-relaxed">{renderMessageContent(msg.content, msg.status === 'RECALLED' ? false : isMe)}</p>
+                  <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${msg.status === 'RECALLED' ? 'text-gray-400' : isMe ? 'text-blue-100' : 'text-gray-400'}`}>
                      <span>{formatTime(msg.createdAt)}</span>
-                     {isMe && (msg.status === 'SEEN' ? <CheckCheck className="w-3 h-3 text-green-300" /> : <Check className="w-3 h-3" />)}
+                     {isMe && msg.status !== 'RECALLED' && (msg.status === 'SEEN' ? <CheckCheck className="w-3 h-3 text-green-300" /> : <Check className="w-3 h-3" />)}
                   </div>
                 </div>
               </div>

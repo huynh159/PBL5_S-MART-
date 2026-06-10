@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { MessageCircle, Send, RefreshCw, User as UserIcon, Check, CheckCheck } from 'lucide-react';
+import { MessageCircle, Send, RefreshCw, User as UserIcon, Check, CheckCheck, MoreVertical } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { jwtDecode } from 'jwt-decode';
 import chatService from '../../services/chat.service';
@@ -17,6 +17,7 @@ const AdminChat = () => {
   const socketRef = useRef(null);
   const chatContainerRef = useRef(null);
   const selectedUserRef = useRef(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
   // Lấy adminId từ JWT – stable value, không thay đổi
   const myAdminId = useRef(null);
@@ -85,6 +86,11 @@ const AdminChat = () => {
       setMessages(prev => prev.map(m => ({ ...m, status: 'SEEN' })));
     });
 
+    socket.on('messageRecalled', (updatedMsg) => {
+      setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+      fetchConversations();
+    });
+
     socket.on('disconnect', () => console.log('[AdminChat] Socket disconnected'));
 
     return () => { socket.disconnect(); };
@@ -143,6 +149,17 @@ const AdminChat = () => {
       toast.error('Gửi tin nhắn thất bại!');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleRecall = async (msgId) => {
+    try {
+      const updatedMsg = await chatService.recallMessage(msgId);
+      setMessages(prev => prev.map(m => m.id === msgId ? updatedMsg.data || updatedMsg : m));
+      setActiveDropdown(null);
+      fetchConversations();
+    } catch (err) {
+      toast.error('Không thể thu hồi tin nhắn');
     }
   };
 
@@ -248,14 +265,28 @@ const AdminChat = () => {
                 const senderId = Number(msg.sender?.id ?? msg.senderId);
                 const isMe = senderId === myAdminId.current;
                 return (
-                  <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm shadow-sm relative group ${
-                      isMe ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
+                  <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 group mb-2`}>
+                    {isMe && msg.status !== 'RECALLED' && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pr-2 relative">
+                        <button onClick={() => setActiveDropdown(activeDropdown === msg.id ? null : msg.id)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {activeDropdown === msg.id && (
+                          <div className="absolute right-0 top-10 bg-white border border-gray-100 shadow-lg rounded-lg py-1 z-50 min-w-[120px]">
+                            <button onClick={() => handleRecall(msg.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
+                              Thu hồi
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm shadow-sm relative ${
+                      msg.status === 'RECALLED' ? 'bg-transparent border border-gray-200 text-gray-400 italic rounded-md' : isMe ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
                     }`}>
-                      <p className="break-words leading-relaxed">{renderMessageContent(msg.content, isMe)}</p>
-                      <div className={`flex items-center gap-1 mt-1.5 text-[10px] opacity-70 ${isMe ? 'justify-end text-blue-100' : 'justify-start text-gray-500'}`}>
+                      <p className="break-words leading-relaxed">{renderMessageContent(msg.content, msg.status === 'RECALLED' ? false : isMe)}</p>
+                      <div className={`flex items-center gap-1 mt-1.5 text-[10px] opacity-70 ${msg.status === 'RECALLED' ? 'justify-end text-gray-400' : isMe ? 'justify-end text-blue-100' : 'justify-start text-gray-500'}`}>
                         <span>{formatTime(msg.createdAt)}</span>
-                        {isMe && (msg.status === 'SEEN'
+                        {isMe && msg.status !== 'RECALLED' && (msg.status === 'SEEN'
                           ? <CheckCheck className="w-3.5 h-3.5 text-blue-200" />
                           : <Check className="w-3.5 h-3.5" />
                         )}

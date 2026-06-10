@@ -7,7 +7,6 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const http_1 = __importDefault(require("http"));
-const path_1 = __importDefault(require("path"));
 const socketService_1 = require("./infrastructure/socket/socketService");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -29,7 +28,6 @@ app.use((0, cors_1.default)({
     credentials: true
 }));
 app.use(express_1.default.json());
-app.use('/uploads', express_1.default.static(path_1.default.resolve(process.cwd(), 'uploads')));
 // â”€â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const auth_routes_1 = __importDefault(require("./interface/routes/auth.routes"));
 const product_routes_1 = __importDefault(require("./interface/routes/product.routes"));

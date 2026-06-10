@@ -15,7 +15,7 @@ const MotionDiv = motion.div;
 const AdminLayout = () => {
   const { logout, token, isAdmin, role } = useAuth();
   const navigate = useNavigate();
-  const hasUnreadChat = useUnreadChat(token);
+  const unreadCount = useUnreadChat(token);
 
   if (!token) return <Navigate to="/login" replace />;
   if (!isAdmin) {
@@ -87,8 +87,10 @@ const AdminLayout = () => {
               <div className="flex items-center gap-3.5 relative">
                 <item.icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110`} />
                 <span className="font-medium tracking-wide">{item.label}</span>
-                {item.to === '/admin/chat' && hasUnreadChat && (
-                  <span className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-red-500 border-2 border-slate-900 rounded-full animate-pulse"></span>
+                {item.to === '/admin/chat' && unreadCount > 0 && (
+                  <span className="absolute -top-1 -left-2 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 border-2 border-slate-900 rounded-full text-[9px] font-bold text-white px-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
                 )}
               </div>
               <ChevronRight className={`w-4 h-4 transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-1`} />

@@ -16,7 +16,7 @@ import { useUnreadChat } from '../hooks/useUnreadChat';
 const Header = () => {
   const { token, logout } = useAuth();
   const { cartCount } = useCart();
-  const hasUnreadChat = useUnreadChat(token);
+  const unreadCount = useUnreadChat(token);
   const [searchInput, setSearchInput] = useState('');
   const [aiMode, setAiMode] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -130,8 +130,10 @@ const Header = () => {
                 `}
               >
                 {link.label}
-                {link.to === '/chat' && hasUnreadChat && (
-                  <span className="absolute -top-1 -right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
+                {link.to === '/chat' && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 rounded-full text-white text-[9px] font-bold px-1 border-2 border-white shadow-sm">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
                 )}
               </NavLink>
             ))}

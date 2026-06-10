@@ -29,10 +29,7 @@ router.post('/send', auth_middleware_1.authMiddleware, async (req, res) => {
             include: { sender: { select: { id: true, email: true } } }
         });
         // Emit via socket
-        const receiverSocketId = socketService_1.onlineUsers.get(receiverId);
-        if (receiverSocketId) {
-            (0, socketService_1.getIO)().to(receiverSocketId).emit('receiveMessage', msg);
-        }
+        (0, socketService_1.getIO)().to(`user_${receiverId}`).emit('receiveMessage', msg);
         res.status(201).json(msg);
     }
     catch (e) {
@@ -100,11 +97,51 @@ router.put('/mark-seen/:senderId', auth_middleware_1.authMiddleware, async (req,
             data: { status: 'SEEN' }
         });
         // Emit seen event to the original sender
-        const senderSocketId = socketService_1.onlineUsers.get(senderId);
-        if (senderSocketId) {
-            (0, socketService_1.getIO)().to(senderSocketId).emit('seenEvent', { readerId: req.user.userId });
-        }
+        (0, socketService_1.getIO)().to(`user_${senderId}`).emit('seenEvent', { readerId: req.user.userId });
         res.json({ message: 'Đã đánh dấu đã xem' });
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// GET /api/chat/unread-count
+router.get('/unread-count', auth_middleware_1.authMiddleware, async (req, res) => {
+    try {
+        const count = await PrismaClient_1.prisma.message.count({
+            where: { receiverId: req.user.userId, status: 'SENT' }
+        });
+        res.json({ unreadCount: count });
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// PUT /api/chat/:id/recall
+router.put('/:id/recall', auth_middleware_1.authMiddleware, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            res.status(400).json({ error: 'ID không hợp lệ' });
+            return;
+        }
+        const userId = req.user.userId;
+        const msg = await PrismaClient_1.prisma.message.findUnique({ where: { id } });
+        if (!msg) {
+            res.status(404).json({ error: 'Không tìm thấy tin nhắn' });
+            return;
+        }
+        if (msg.senderId !== userId) {
+            res.status(403).json({ error: 'Không có quyền thu hồi' });
+            return;
+        }
+        const updatedMsg = await PrismaClient_1.prisma.message.update({
+            where: { id },
+            data: { content: 'Tin nhắn đã bị thu hồi', status: 'RECALLED' },
+            include: { sender: { select: { id: true, email: true } } }
+        });
+        // Emit via socket
+        (0, socketService_1.getIO)().to(`user_${updatedMsg.receiverId}`).emit('messageRecalled', updatedMsg);
+        res.json({ message: 'Đã thu hồi tin nhắn', data: updatedMsg });
     }
     catch (e) {
         res.status(500).json({ error: e.message });
