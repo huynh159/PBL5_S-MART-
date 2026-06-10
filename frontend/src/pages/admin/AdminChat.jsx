@@ -151,6 +151,29 @@ const AdminChat = () => {
     return new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const renderMessageContent = (text, isMe) => {
+    if (!text) return null;
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g;
+    if (!linkRegex.test(text)) return text;
+
+    const parts = [];
+    let lastIndex = 0;
+    linkRegex.lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) parts.push(text.substring(lastIndex, match.index));
+      parts.push(
+        <a key={match.index} href={match[2]} target="_blank" rel="noopener noreferrer" className={`underline font-semibold ${isMe ? 'text-white' : 'text-blue-600'}`}>
+          {match[1]}
+        </a>
+      );
+      lastIndex = linkRegex.lastIndex;
+    }
+    if (lastIndex < text.length) parts.push(text.substring(lastIndex));
+    return parts;
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       {/* Danh sách hội thoại */}
@@ -229,7 +252,7 @@ const AdminChat = () => {
                     <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm shadow-sm relative group ${
                       isMe ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
                     }`}>
-                      <p className="break-words leading-relaxed">{msg.content}</p>
+                      <p className="break-words leading-relaxed">{renderMessageContent(msg.content, isMe)}</p>
                       <div className={`flex items-center gap-1 mt-1.5 text-[10px] opacity-70 ${isMe ? 'justify-end text-blue-100' : 'justify-start text-gray-500'}`}>
                         <span>{formatTime(msg.createdAt)}</span>
                         {isMe && (msg.status === 'SEEN'

@@ -28,7 +28,7 @@ const Profile = () => {
         const profile = await authService.getMe();
         setUserInfo(profile);
       } catch (error) {
-        toast.error(error.response?.data?.error || 'Khong the tai thong tin tai khoan');
+        toast.error(error.response?.data?.error || 'Không thể tải thông tin tài khoản');
       } finally {
         setLoading(false);
       }
@@ -46,12 +46,12 @@ const Profile = () => {
     event.preventDefault();
 
     if (passwordForm.newPassword.length < 6) {
-      toast.warning('Mat khau moi phai co it nhat 6 ky tu');
+      toast.warning('Mật khẩu mới phải có ít nhất 6 ký tự');
       return;
     }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.warning('Mat khau xac nhan khong khop');
+      toast.warning('Mật khẩu xác nhận không khớp');
       return;
     }
 
@@ -61,10 +61,10 @@ const Profile = () => {
         passwordForm.currentPassword,
         passwordForm.newPassword
       );
-      toast.success(response.message || 'Doi mat khau thanh cong');
+      toast.success(response.message || 'Đổi mật khẩu thành công');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Doi mat khau that bai');
+      toast.error(error.response?.data?.error || 'Đổi mật khẩu thất bại');
     } finally {
       setSaving(false);
     }
@@ -75,7 +75,7 @@ const Profile = () => {
   };
 
   if (loading) {
-    return <div className="p-10 text-center text-gray-500">Dang tai thong tin...</div>;
+    return <div className="p-10 text-center text-gray-500">Đang tải thông tin...</div>;
   }
 
   if (!userInfo) return null;
@@ -101,7 +101,7 @@ const Profile = () => {
             </div>
 
             <h1 className="text-2xl font-bold text-gray-800 mb-1">
-              Ho so tai khoan
+              Hồ sơ tài khoản
             </h1>
 
             <div className="space-y-4 mt-6">
@@ -116,7 +116,7 @@ const Profile = () => {
               <div className="flex items-center gap-3 text-gray-600 bg-gray-50 px-4 py-3 rounded-xl">
                 <Shield className="w-5 h-5 text-blue-500 flex-shrink-0" />
                 <div>
-                  <p className="text-xs text-gray-400">Vai tro</p>
+                  <p className="text-xs text-gray-400">Vai trò</p>
                   <p className="font-medium">{userInfo.role || 'CUSTOMER'}</p>
                 </div>
               </div>
@@ -124,7 +124,7 @@ const Profile = () => {
               <div className="flex items-center gap-3 text-gray-600 bg-gray-50 px-4 py-3 rounded-xl">
                 <Lock className="w-5 h-5 text-blue-500 flex-shrink-0" />
                 <div>
-                  <p className="text-xs text-gray-400">Trang thai</p>
+                  <p className="text-xs text-gray-400">Trạng thái</p>
                   <p className="font-medium">{userInfo.status || 'ACTIVE'}</p>
                 </div>
               </div>
@@ -133,7 +133,7 @@ const Profile = () => {
                 <div className="flex items-center gap-3 text-gray-600 bg-gray-50 px-4 py-3 rounded-xl">
                   <Calendar className="w-5 h-5 text-blue-500 flex-shrink-0" />
                   <div>
-                    <p className="text-xs text-gray-400">Ngay tao tai khoan</p>
+                    <p className="text-xs text-gray-400">Ngày tạo tài khoản</p>
                     <p className="font-medium">
                       {new Date(userInfo.createdAt).toLocaleString('vi-VN')}
                     </p>
@@ -146,7 +146,7 @@ const Profile = () => {
               onClick={handleLogout}
               className="mt-8 w-full py-3 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition border border-red-100"
             >
-              Dang xuat
+              Đăng xuất
             </button>
           </div>
         </section>
@@ -157,14 +157,14 @@ const Profile = () => {
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-800">Doi mat khau</h2>
-              <p className="text-sm text-gray-500">Cap nhat mat khau dang nhap cua tai khoan hien tai.</p>
+              <h2 className="text-xl font-bold text-gray-800">Đổi mật khẩu</h2>
+              <p className="text-sm text-gray-500">Cập nhật mật khẩu đăng nhập của tài khoản hiện tại.</p>
             </div>
           </div>
 
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mat khau hien tai</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
               <input
                 type="password"
                 name="currentPassword"
@@ -176,7 +176,7 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mat khau moi</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
               <input
                 type="password"
                 name="newPassword"
@@ -189,7 +189,7 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nhap lai mat khau moi</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nhập lại mật khẩu mới</label>
               <input
                 type="password"
                 name="confirmPassword"
@@ -206,7 +206,7 @@ const Profile = () => {
               disabled={saving}
               className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:bg-blue-400 disabled:cursor-not-allowed"
             >
-              {saving ? 'Dang cap nhat...' : 'Luu mat khau moi'}
+              {saving ? 'Đang cập nhật...' : 'Lưu mật khẩu mới'}
             </button>
           </form>
         </section>
