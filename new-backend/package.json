@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
-    "build": "tsc && tsc -p tsconfig.seed.json",
+    "build": "prisma db push --accept-data-loss && tsc && tsc -p tsconfig.seed.json",
     "start": "node dist/index.js",
     "test": "vitest run src",
     "postinstall": "prisma generate",
