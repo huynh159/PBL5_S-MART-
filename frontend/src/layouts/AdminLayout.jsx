@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { 
-  LayoutDashboard, Users, ShoppingBag, LogOut, 
+import {
+  LayoutDashboard, Users, ShoppingBag, LogOut,
   FileText, Ticket, MessageSquare, Search,
   ChevronRight, UserCircle
 } from 'lucide-react';
@@ -44,7 +44,7 @@ const AdminLayout = () => {
       {/* Sidebar */}
       <aside className="w-72 glass-dark text-white flex flex-col z-20 relative shadow-2xl">
         <div className="h-20 flex items-center px-8 border-b border-slate-700/50 mb-4">
-          <MotionDiv 
+          <MotionDiv
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-3"
@@ -71,16 +71,16 @@ const AdminLayout = () => {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {menuItems.map((item) => (
-            <NavLink 
+            <NavLink
               key={item.to}
               end={item.end}
-              to={item.to} 
+              to={item.to}
               className={({ isActive }) => `
                 group flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 relative
-                ${isActive 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                ${isActive
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}
               `}
             >
@@ -114,9 +114,9 @@ const AdminLayout = () => {
           <div className="flex items-center gap-4 flex-1">
             <div className="relative max-w-md w-full group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Tìm kiếm nhanh hệ thống..." 
+              <input
+                type="text"
+                placeholder="Tìm kiếm nhanh hệ thống..."
                 className="w-full bg-slate-100/50 border-none rounded-full py-2.5 pl-11 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all shadow-inner"
               />
             </div>
@@ -134,7 +134,7 @@ const AdminLayout = () => {
 
         {/* View Routing with Animation */}
         <div className="flex-1 overflow-auto bg-slate-50/50 custom-scrollbar">
-          <MotionDiv 
+          <MotionDiv
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
