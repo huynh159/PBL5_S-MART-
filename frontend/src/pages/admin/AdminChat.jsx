@@ -175,7 +175,7 @@ const AdminChat = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
+    <div className="flex h-[calc(100vh-10rem)] gap-4">
       {/* Danh sách hội thoại */}
       <div className="w-1/3 bg-white rounded-2xl shadow-md border-0 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
