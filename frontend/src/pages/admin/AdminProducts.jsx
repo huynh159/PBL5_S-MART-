@@ -343,7 +343,7 @@ const AdminProducts = () => {
       {/* Modern Modal - Re-designed */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 lg:pl-76">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
