@@ -40,35 +40,54 @@ const Checkout = () => {
   const directItems = location.state?.directItems || [];
 
   useEffect(() => {
-    // Load provinces
-    fetch('https://provinces.open-api.vn/api/?depth=3')
-      .then(res => res.json())
-      .then(data => setProvinces(data))
-      .catch(() => toast.error('Không thể tải dữ liệu địa chỉ'));
+    // Load provinces with caching
+    const loadProvinces = async () => {
+      let data = [];
+      const cachedData = localStorage.getItem('vnProvincesCache');
+      if (cachedData) {
+        data = JSON.parse(cachedData);
+        setProvinces(data);
+      } else {
+        try {
+          const res = await fetch('https://provinces.open-api.vn/api/?depth=3');
+          data = await res.json();
+          setProvinces(data);
+          try { localStorage.setItem('vnProvincesCache', JSON.stringify(data)); } catch (e) {}
+        } catch (err) {
+          toast.error('Không thể tải dữ liệu địa chỉ');
+          return;
+        }
+      }
+
+      // Auto-fill address INSTANTLY if saved
+      const savedInfo = localStorage.getItem('lastAddressInfo');
+      if (savedInfo) {
+        try {
+          const parsed = JSON.parse(savedInfo);
+          if (parsed.phone) setPhone(parsed.phone);
+          if (parsed.street) setStreet(parsed.street);
+          if (parsed.province) {
+            setSelectedProvince(parsed.province);
+            const prov = data.find(p => p.name === parsed.province);
+            if (prov) {
+              setDistricts(prov.districts);
+              if (parsed.district) {
+                setSelectedDistrict(parsed.district);
+                const dist = prov.districts.find(d => d.name === parsed.district);
+                if (dist) {
+                  setWards(dist.wards);
+                  if (parsed.ward) {
+                    setSelectedWard(parsed.ward);
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
+    };
+    loadProvinces();
   }, []);
-
-  useEffect(() => {
-    if(selectedProvince) {
-      const prov = provinces.find(p => p.name === selectedProvince);
-      if(prov) setDistricts(prov.districts);
-      setWards([]);
-      setSelectedDistrict('');
-      setSelectedWard('');
-    } else {
-      setDistricts([]);
-      setShippingFee(0);
-    }
-  }, [selectedProvince, provinces]);
-
-  useEffect(() => {
-    if(selectedDistrict) {
-      const dist = districts.find(d => d.name === selectedDistrict);
-      if(dist) setWards(dist.wards);
-      setSelectedWard('');
-    } else {
-      setWards([]);
-    }
-  }, [selectedDistrict, districts]);
 
   // Real-time Shipping Fee Calculation via Backend API
   useEffect(() => {
@@ -117,27 +136,6 @@ const Checkout = () => {
     setAddress(fullAdr);
   }, [street, selectedWard, selectedDistrict, selectedProvince]);
 
-  useEffect(() => {
-    const savedInfo = localStorage.getItem('lastAddressInfo');
-    if (savedInfo) {
-      try {
-        const parsed = JSON.parse(savedInfo);
-        if (parsed.phone) setPhone(parsed.phone);
-        if (parsed.province) {
-          setSelectedProvince(parsed.province);
-          // District & Ward will be set after provinces/districts load,
-          // but state updates are tricky if districts aren't loaded yet.
-          // To ensure they are set when options are available, we handle it indirectly
-          // or just load the values in a separate Timeout/effect.
-          setTimeout(() => {
-            if (parsed.district) setSelectedDistrict(parsed.district);
-            if (parsed.ward) setTimeout(() => setSelectedWard(parsed.ward), 100);
-          }, 500);
-        }
-        if (parsed.street) setStreet(parsed.street);
-      } catch (e) {}
-    }
-  }, [provinces]);
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
@@ -274,7 +272,20 @@ const Checkout = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố *</label>
                     <select
                       value={selectedProvince}
-                      onChange={e => setSelectedProvince(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setSelectedProvince(val);
+                        const prov = provinces.find(p => p.name === val);
+                        if (prov) {
+                          setDistricts(prov.districts);
+                        } else {
+                          setDistricts([]);
+                          setShippingFee(0);
+                        }
+                        setWards([]);
+                        setSelectedDistrict('');
+                        setSelectedWard('');
+                      }}
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none bg-white"
                       required
                     >
@@ -286,7 +297,14 @@ const Checkout = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện *</label>
                     <select
                       value={selectedDistrict}
-                      onChange={e => setSelectedDistrict(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setSelectedDistrict(val);
+                        const dist = districts.find(d => d.name === val);
+                        if (dist) setWards(dist.wards);
+                        else setWards([]);
+                        setSelectedWard('');
+                      }}
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none bg-white"
                       required
                       disabled={!selectedProvince}
