@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -616,7 +616,7 @@ const AdminDashboard = () => {
            <h2 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-orange-500" /> Sản Phẩm Bán Chạy (Theo Kỳ)
             </h2>
-            <div className="h-64 w-full">
+            <div className="h-80 w-full">
               {loading ? (
                 <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl"></div>
               ) : (
@@ -624,7 +624,7 @@ const AdminDashboard = () => {
                   <BarChart data={stats.topProducts || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9"/>
                     <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={120} tick={{fill: '#475569', fontSize: 12, fontWeight: 600}} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={150} tick={{fill: '#475569', fontSize: 12, fontWeight: 600}} tickFormatter={(value) => value && value.length > 25 ? value.substring(0, 25) + '...' : value} />
                     <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
                     <Bar dataKey="totalSold" fill="#f97316" radius={[0, 4, 4, 0]} barSize={20} animationDuration={1000} name="Đã bán" />
                   </BarChart>

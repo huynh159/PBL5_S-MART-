@@ -6,7 +6,7 @@ import { prisma } from '../persistence/PrismaClient';
  */
 export class OrderCleanupService {
     private static INTERVAL_MS = 30 * 1000; // Kiểm tra mỗi 30 giây để đảm bảo chính xác hơn
-    private static EXPIRY_MINUTES = 3;     // Hết hạn sau 3 phút
+    private static EXPIRY_MINUTES = 15;     // Hết hạn sau 15 phút
 
     static start() {
         console.log('🚀 Order Cleanup Service started (Interval: 1 min)');
@@ -49,7 +49,7 @@ export class OrderCleanupService {
                                     vars[varIndex].stock = (vars[varIndex].stock || 0) + item.quantity;
                                     updatedVariations = JSON.stringify(vars);
                                 }
-                            } catch (e) {}
+                            } catch (e) { }
                         }
 
                         await tx.product.update({
